@@ -3,1071 +3,216 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Werenoi, streams et certifications</title>
-<meta name="description" content="Les streams Spotify de chaque titre de Werenoi et ses certifications SNEP, mis à jour chaque soir.">
+<title>Werenoi, l'univers</title>
+<meta name="description" content="Cinq univers autour de Werenoi : sa discographie, ses chiffres Spotify en direct, ses certifications SNEP et tous ses titres, mis à jour chaque soir.">
+<meta name="theme-color" content="#070605">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-/* Layout: fixed glass bar over a full-bleed 3D banner (black diamond + one crystal per song) that drifts away on scroll;
-   then Top 24 h (relief bars), Certifications (tiltable album cards), Tous les titres (sortable, expandable rows).
-   Palette: indigo night, gold, magenta, cyan, violet. Prism colours carry meaning: diamant = cyan/violet, platine = silver, or = gold. */
-:root {
-  --ink: #0a0820;
-  --ink-2: #110e2b;
-  --ink-3: #1a1640;
-  --line: #2a2552;
-  --text: #f1edff;
-  --muted: #a39dc7;
-  --gold: #f5b942;
-  --magenta: #ff3d8b;
-  --cyan: #33e0ff;
-  --violet: #8b5cff;
-  --mint: #3dffb5;
-  --platine: #dfe4ee;
-  --down: #ff7a6b;
-  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
-  --body: "Manrope", "Helvetica Neue", Arial, sans-serif;
-  --bar-h: 60px;
-  color-scheme: dark;
-}
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: calc(var(--bar-h) + 12px); }
-html, body { margin: 0; }
-body { background: var(--ink); color: var(--text); font: 400 15px/1.55 var(--body); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-a { color: inherit; }
-button { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; border-radius: 6px; }
-.num { font-variant-numeric: tabular-nums; }
-.wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-
-/* Bar */
-.bar { position: fixed; top: 0; left: 0; right: 0; z-index: 40; height: var(--bar-h); transition: background-color .3s, border-color .3s; border-bottom: 1px solid transparent; }
-.bar.solid { background: rgba(10, 8, 32, .78); backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%); border-bottom-color: var(--line); }
-.bar .wrap { height: 100%; display: flex; align-items: center; gap: 20px; }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 15px var(--display); flex: none; }
-.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
-.tabs::-webkit-scrollbar { display: none; }
-.tabs a { flex: none; text-decoration: none; color: var(--muted); font-weight: 700; font-size: 14px; padding: 8px 13px; border-radius: 999px; transition: color .2s, background-color .2s; }
-.tabs a:hover { color: var(--text); }
-.tabs a[aria-current="true"] { color: var(--ink); background: linear-gradient(90deg, var(--gold), #ffd27a); }
-.kbd-search { flex: none; display: flex; align-items: center; gap: 8px; background: rgba(26, 22, 64, .7); border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px 7px 14px; color: var(--muted); font-size: 13px; cursor: pointer; transition: border-color .2s, color .2s; }
-.kbd-search:hover { border-color: var(--cyan); color: var(--text); }
-.kbd-search kbd { font: 700 11px var(--body); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
-
-/* 3D banner */
-.banner { position: relative; height: min(100svh, 860px); min-height: 600px; overflow: hidden; isolation: isolate;
-  background: radial-gradient(60% 70% at 72% 45%, rgba(139, 92, 255, .35), transparent 70%), radial-gradient(40% 50% at 90% 85%, rgba(255, 61, 139, .28), transparent 70%), radial-gradient(45% 55% at 10% 20%, rgba(51, 224, 255, .16), transparent 70%), var(--ink); }
-.banner::after { content: ""; position: absolute; inset: auto 0 0 0; height: 160px; background: linear-gradient(transparent, var(--ink)); pointer-events: none; z-index: 2; }
-#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; opacity: 0; transition: opacity 1.2s ease; touch-action: pan-y; cursor: grab; }
-#scene.ready { opacity: 1; }
-#scene.dragging { cursor: grabbing; }
-#scene.over-crystal { cursor: pointer; }
-.banner-ui { position: absolute; z-index: 3; left: 0; right: 0; bottom: 0; top: var(--bar-h); pointer-events: none; will-change: transform, opacity; }
-.banner-ui::before { content: ""; position: absolute; inset: calc(-1 * var(--bar-h)) 0 0 0; background: linear-gradient(90deg, rgba(10, 8, 32, .82) 0%, rgba(10, 8, 32, .55) 32%, rgba(10, 8, 32, 0) 55%); pointer-events: none; }
-.banner-ui .wrap { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-bottom: 60px; }
-.banner-ui .copy { max-width: 560px; pointer-events: auto; }
-.banner h1 { display: inline-block; padding-right: .06em; margin: 0; font: 800 clamp(58px, 10vw, 136px)/.86 var(--display); letter-spacing: -.04em; background: linear-gradient(100deg, #ffffff 15%, #ffd27a 45%, #ff7ab3 70%, #9d84ff 95%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 6px 30px rgba(139, 92, 255, .35)); }
-.lede { margin: 18px 0 0; color: #d3cdf0; font-size: 16px; max-width: 44ch; }
-.lede strong { color: var(--text); }
-.memo { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
-.live { margin-top: 28px; }
-.live-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d3cdf0; }
-.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 0 rgba(61, 255, 181, .6); animation: pulse 2s infinite; }
-@keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(61, 255, 181, 0); } 100% { box-shadow: 0 0 0 0 rgba(61, 255, 181, 0); } }
-.counter { font: 800 clamp(34px, 5.4vw, 62px)/1.05 var(--body); letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; text-shadow: 0 0 40px rgba(245, 185, 66, .25); }
-.counter-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 50ch; }
-.counter-note b { color: var(--text); }
-.hint { position: absolute; z-index: 3; right: 24px; bottom: 74px; max-width: 300px; font-size: 13px; color: #d3cdf0; text-align: right; pointer-events: none; margin: 0; }
-.hint b { color: var(--gold); }
-.ring-cap { display: block; margin-bottom: 6px; }
-.scroll-cue { position: absolute; z-index: 3; left: 50%; bottom: 22px; transform: translateX(-50%); width: 26px; height: 40px; border: 2px solid rgba(241, 237, 255, .4); border-radius: 14px; }
-.scroll-cue::after { content: ""; position: absolute; left: 50%; top: 7px; width: 4px; height: 8px; margin-left: -2px; border-radius: 2px; background: var(--text); animation: cue 1.8s infinite; }
-@keyframes cue { 0% { transform: translateY(0); opacity: 1; } 80% { transform: translateY(12px); opacity: 0; } 100% { opacity: 0; } }
-.ctip { position: absolute; z-index: 5; pointer-events: none; min-width: 180px; padding: 10px 12px; border-radius: 12px; background: rgba(17, 14, 43, .92); border: 1px solid var(--line); box-shadow: 0 10px 40px rgba(0, 0, 0, .45); font-size: 13px; transform: translate(14px, -50%); opacity: 0; transition: opacity .12s; }
-.ctip.on { opacity: 1; }
-.ctip strong { display: block; font-size: 15px; margin-bottom: 2px; }
-.ctip .s { color: var(--muted); }
-.ctip .medal { margin-top: 6px; }
-.ctip .go { display: block; margin-top: 6px; color: var(--cyan); font-weight: 700; font-size: 12px; }
-.strip { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
-.strip > div { padding: 10px 14px; border-radius: 14px; background: rgba(26, 22, 64, .55); border: 1px solid var(--line); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: grid; gap: 0; }
-.strip b { font: 800 20px var(--body); font-variant-numeric: tabular-nums; }
-.strip span { font-size: 12px; color: var(--muted); }
-.strip .c1 b { color: var(--mint); } .strip .c2 b { color: var(--gold); } .strip .c3 b { color: var(--cyan); }
-
-/* Sections */
-section.block { position: relative; padding: 64px 0; }
-section.block + section.block { border-top: 1px solid var(--line); }
-.head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; margin-bottom: 24px; }
-.head h2 { margin: 0; font: 700 clamp(22px, 3vw, 32px)/1.1 var(--display); letter-spacing: -.01em; text-wrap: balance; }
-.head p { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
-.duo { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 44px; }
-h3.sub { margin: 0 0 16px; font: 700 15px var(--body); }
-
-/* Top 24 h: relief bars */
-.hot { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.hot li button { width: 100%; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: 6px 12px; align-items: baseline; text-align: left; background: none; border: 0; padding: 8px 6px 10px; border-radius: 12px; cursor: pointer; transition: background-color .2s; }
-.hot li button:hover { background: rgba(26, 22, 64, .6); }
-.hot .pos { font: 700 18px var(--display); background: linear-gradient(180deg, #fff, var(--c1)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.hot .nm { font-weight: 700; overflow-wrap: anywhere; }
-.hot .val { font-weight: 800; color: var(--mint); font-variant-numeric: tabular-nums; }
-.prism { grid-column: 2 / 4; position: relative; height: 22px; }
-.prism .f { position: absolute; left: 0; bottom: 0; height: 14px; width: 0; border-radius: 2px 3px 3px 2px; background: linear-gradient(90deg, var(--c1), var(--c2)); transition: width 1s cubic-bezier(.2, .7, .2, 1), transform .25s; box-shadow: 0 8px 18px -8px var(--c2); }
-.prism .f::before { content: ""; position: absolute; left: 4px; right: -4px; top: -7px; height: 7px; background: linear-gradient(90deg, var(--c1), var(--c2)); filter: brightness(1.45) saturate(1.1); transform: skewX(-45deg); transform-origin: left bottom; border-radius: 2px 2px 0 0; }
-.prism .f::after { content: ""; position: absolute; right: -7px; top: -7px; width: 7px; height: 14px; background: var(--c2); filter: brightness(.65); transform: skewY(-45deg); transform-origin: left top; border-radius: 0 2px 2px 0; }
-.hot li button:hover .prism .f { transform: translateY(-3px); }
-
-.chart { position: relative; }
-.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart .ax { fill: var(--muted); font: 600 11px var(--body); }
-.chart .lbl { fill: var(--text); font: 800 12px var(--body); }
-.tip { position: absolute; pointer-events: none; background: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -120%); opacity: 0; transition: opacity .15s; }
-.tip.on { opacity: 1; }
-.note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
-
-/* Medals */
-.medal { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; padding: 3px 9px 3px 8px; border-radius: 999px; white-space: nowrap; background: var(--ink-3); border: 1px solid currentColor; line-height: 1.3; }
-.medal::before { content: ""; width: 7px; height: 7px; background: currentColor; transform: rotate(45deg); flex: none; }
-.m-or { color: var(--gold); }
-.m-platine { color: var(--platine); }
-.m-diamant { color: var(--cyan); border: 1px solid transparent; background: linear-gradient(var(--ink-3), var(--ink-3)) padding-box, linear-gradient(120deg, var(--cyan), var(--violet), var(--magenta)) border-box; }
-.m-diamant::before { background: linear-gradient(135deg, var(--cyan), var(--violet)); }
-.chip { font-size: 11px; font-weight: 800; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-.chip.new { border-color: var(--mint); color: var(--mint); }
-.medal-row { display: flex; gap: 6px; flex-wrap: wrap; }
-
-/* Certifications */
-.spectrum { display: flex; height: 16px; border-radius: 8px; overflow: hidden; gap: 3px; }
-.spectrum span { display: block; height: 100%; transition: flex-grow 1s cubic-bezier(.2, .7, .2, 1); }
-.s-diamant { background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta)); }
-.s-platine { background: linear-gradient(90deg, #b9c0cf, var(--platine)); }
-.s-or { background: linear-gradient(90deg, #e69b1e, var(--gold)); }
-.legend { display: flex; flex-wrap: wrap; gap: 10px 36px; margin-top: 14px; }
-.legend div { display: grid; }
-.legend b { font: 800 32px/1.1 var(--display); }
-.legend span { font-size: 13px; color: var(--muted); }
-.legend .k { font-size: 14px; font-weight: 800; }
-.lk-diamant { color: var(--cyan); } .lk-platine { color: var(--platine); } .lk-or { color: var(--gold); }
-.albums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-top: 36px; }
-.album { position: relative; border-radius: 18px; padding: 18px 16px 16px; min-height: 190px; display: grid; gap: 8px; align-content: start; background: linear-gradient(160deg, rgba(26, 22, 64, .95), rgba(17, 14, 43, .95)); border: 1px solid var(--line); transform: perspective(800px); transform-style: preserve-3d; transition: transform .2s ease-out, box-shadow .3s; will-change: transform; }
-.album::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: var(--edge); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
-.album::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, .14), transparent 60%); opacity: var(--glare, 0); transition: opacity .3s; }
-.album.f-diamant { --edge: linear-gradient(135deg, var(--cyan), var(--violet), var(--magenta)); box-shadow: 0 20px 50px -24px rgba(139, 92, 255, .8); }
-.album.f-platine { --edge: linear-gradient(135deg, #fff, #9aa3b5); box-shadow: 0 20px 50px -24px rgba(223, 228, 238, .45); }
-.album.f-or { --edge: linear-gradient(135deg, #ffe3a3, var(--gold)); box-shadow: 0 20px 50px -24px rgba(245, 185, 66, .6); }
-.album .al { font: 700 20px/1.15 var(--display); transform: translateZ(18px); }
-.album .medal-row { transform: translateZ(12px); }
-.album p { margin: 0; font-size: 13px; color: var(--muted); transform: translateZ(6px); }
-.recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
-.recent li { display: grid; gap: 6px; align-content: start; padding-top: 12px; border-top: 3px solid var(--line); }
-.recent li.d-or { border-top-color: var(--gold); }
-.recent li.d-platine { border-top-color: var(--platine); }
-.recent li.d-diamant { border-image: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta)) 1; }
-.recent time { font-size: 13px; color: var(--muted); }
-.recent .ct { font-weight: 800; font-size: 16px; overflow-wrap: anywhere; }
-.recent .ca { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
-
-/* Toolbars */
-.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
-.search { position: relative; flex: 1 1 260px; min-width: 0; }
-.search input { width: 100%; height: 46px; background: var(--ink-2); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0 40px; font: 600 15px var(--body); transition: border-color .2s, box-shadow .2s; }
-.search input:focus { border-color: var(--cyan); outline: none; box-shadow: 0 0 0 4px rgba(51, 224, 255, .15); }
-.search input::placeholder { color: var(--muted); }
-.search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
-.search .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 34px; height: 34px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 18px; line-height: 1; }
-.search .clear:hover { color: var(--text); background: var(--ink-3); }
-.seg { display: inline-flex; flex-wrap: wrap; background: var(--ink-2); border: 1px solid var(--line); border-radius: 14px; padding: 3px; }
-.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: 14px; padding: 0 13px; height: 38px; border-radius: 11px; cursor: pointer; transition: background-color .2s, color .2s; }
-.seg button:hover { color: var(--text); }
-.seg button[aria-pressed="true"] { background: linear-gradient(135deg, rgba(139, 92, 255, .35), rgba(255, 61, 139, .25)); color: var(--text); box-shadow: inset 0 0 0 1px rgba(139, 92, 255, .6); }
-.count { color: var(--muted); font-size: 13px; margin-left: auto; }
-
-/* Titles table */
-.tbl { border-top: 1px solid var(--line); }
-.thead, .trow { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 9.5rem 7.5rem 2.2rem; gap: 14px; align-items: center; }
-.thead { padding: 8px 0; border-bottom: 1px solid var(--line); position: sticky; top: var(--bar-h); background: rgba(10, 8, 32, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 5; }
-.thead button, .thead span { background: none; border: 0; padding: 4px 0; font-size: 12px; font-weight: 800; color: var(--muted); text-align: left; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
-.thead span { cursor: default; }
-.thead .r { justify-content: flex-end; text-align: right; }
-.thead button:hover, .thead button[aria-sort="descending"], .thead button[aria-sort="ascending"] { color: var(--text); }
-.thead button .ar { opacity: 0; transition: opacity .2s, transform .2s; }
-.thead button[aria-sort="descending"] .ar, .thead button[aria-sort="ascending"] .ar { opacity: 1; }
-.thead button[aria-sort="ascending"] .ar { transform: rotate(180deg); }
-.list { list-style: none; margin: 0; padding: 0; }
-.list > li { border-bottom: 1px solid var(--line); scroll-margin-top: calc(var(--bar-h) + 60px); }
-.list > li.flash { animation: flash 1.6s ease-out; }
-@keyframes flash { 0%, 30% { background: rgba(139, 92, 255, .22); } 100% { background: transparent; } }
-.trow { width: 100%; padding: 12px 0; background: none; border: 0; text-align: left; cursor: pointer; transition: background-color .15s; }
-.trow:hover { background: linear-gradient(90deg, transparent, rgba(139, 92, 255, .08) 30%, transparent); }
-.rk { font: 700 17px var(--display); color: var(--muted); display: flex; align-items: baseline; gap: 6px; }
-.list > li:nth-child(1) .rk { color: var(--gold); } .list > li:nth-child(2) .rk { color: var(--platine); } .list > li:nth-child(3) .rk { color: #e7a46b; }
-.mv { font: 800 11px var(--body); }
-.mv.up { color: var(--mint); } .mv.down { color: var(--down); } .mv.eq { color: var(--muted); }
-.ti { min-width: 0; display: grid; gap: 7px; }
-.ti-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.ti-line strong { font-weight: 700; font-size: 15px; overflow-wrap: anywhere; }
-.ti .medal { font-size: 10px; padding: 1px 7px 1px 6px; }
-.beam { height: 4px; border-radius: 2px; background: var(--ink-3); overflow: hidden; }
-.beam i { display: block; height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--violet), var(--magenta), var(--gold)); }
-.r { text-align: right; justify-self: end; }
-.nums { display: contents; }
-.tot { font-weight: 800; }
-.day { color: var(--mint); font-weight: 700; }
-.chev { justify-self: end; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); transition: transform .25s, color .2s; }
-.trow[aria-expanded="true"] .chev { transform: rotate(180deg); color: var(--cyan); }
-.detail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; padding: 4px 0 18px calc(3.2rem + 14px); animation: open .25s ease-out; }
-@keyframes open { from { opacity: 0; transform: translateY(-4px); } }
-.detail > div { display: grid; gap: 3px; align-content: start; }
-.detail .k { font-size: 12px; color: var(--muted); }
-.detail .v { font-weight: 800; font-size: 15px; }
-.prog { height: 6px; border-radius: 3px; background: var(--ink-3); overflow: hidden; margin-top: 4px; }
-.prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta)); border-radius: 3px; }
-.btn { display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px; border-radius: 999px; background: linear-gradient(135deg, var(--mint), #1ed760); color: #04140b; font-weight: 800; font-size: 14px; text-decoration: none; justify-self: start; transition: transform .2s; box-shadow: 0 8px 24px -10px rgba(30, 215, 96, .8); }
-.btn:hover { transform: translateY(-2px); }
-.empty { padding: 28px 0; color: var(--muted); }
-.more { margin-top: 16px; height: 42px; padding: 0 18px; border-radius: 999px; background: var(--ink-2); border: 1px solid var(--line); color: var(--text); font-weight: 700; font-size: 14px; cursor: pointer; transition: border-color .2s; }
-.more:hover { border-color: var(--cyan); }
-.crow, .chd { display: grid; grid-template-columns: 6.6rem 8.6rem minmax(0, 1fr) 5rem 6.4rem; gap: 14px; align-items: center; }
-.crow { padding: 11px 0; border-bottom: 1px solid var(--line); }
-.chd { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 800; color: var(--muted); }
-.crow .cti { min-width: 0; display: grid; gap: 1px; }
-.crow .cti b { font-weight: 700; overflow-wrap: anywhere; }
-.crow .cti span, .crow .ccat, .crow .crel { font-size: 13px; color: var(--muted); }
-.clist { list-style: none; margin: 0; padding: 0; }
-
-footer { padding: 40px 0 70px; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); }
-footer .wrap { display: grid; gap: 8px; }
-footer p { margin: 0; max-width: 78ch; }
-
-.top-btn { position: fixed; right: 18px; bottom: 18px; z-index: 30; width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--line); background: rgba(26, 22, 64, .9); color: var(--text); cursor: pointer; display: grid; place-items: center; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity .25s, transform .25s, border-color .2s; }
-.top-btn.on { opacity: 1; transform: none; pointer-events: auto; }
-.top-btn:hover { border-color: var(--cyan); }
-
-@media (max-width: 900px) {
-  .banner { height: max(100svh, 680px); }
-  .banner-ui .wrap { justify-content: flex-end; padding-bottom: 70px; }
-  .banner-ui::before { background: linear-gradient(0deg, rgba(10, 8, 32, .9) 0%, rgba(10, 8, 32, .6) 45%, rgba(10, 8, 32, 0) 65%); }
-  .hint { display: none; }
-  .duo { grid-template-columns: minmax(0, 1fr); }
-  .albums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .recent { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .trow { grid-template-columns: 2.6rem minmax(0, 1fr) auto 2rem; }
-  .nums { display: grid; justify-items: end; gap: 1px; }
-  .trow .day { font-size: 13px; }
-  .thead { display: flex; gap: 18px; align-items: center; }
-  .thead > span { display: none; }
-  .thead button:first-of-type { margin-right: auto; }
-  .detail { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-left: calc(2.6rem + 14px); }
-  .crow, .chd { grid-template-columns: 6rem 7.6rem minmax(0, 1fr); }
-  .crow .ccat, .crow .crel, .chd .ccat, .chd .crel { display: none; }
-  .kbd-search span, .kbd-search kbd { display: none; }
-}
-@media (max-width: 560px) {
-  .wrap { padding: 0 16px; }
-  .brand span { display: none; }
-  .tabs a { padding: 8px 10px; font-size: 13px; }
-  .strip b { font-size: 17px; }
-  .albums { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
-  .album { min-height: 160px; padding: 14px 12px; }
-  .album .al { font-size: 16px; }
-  .recent { grid-template-columns: minmax(0, 1fr); }
-  .trow { grid-template-columns: 2.2rem minmax(0, 1fr) auto 1.6rem; gap: 10px; }
-  .detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-left: 0; }
-  .crow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
-  .chd { display: none; }
-  .crow .cd { grid-column: 1; font-size: 12px; color: var(--muted); }
-  .crow .cm { grid-column: 2; grid-row: 1; }
-  .crow .cti { grid-column: 1 / 3; }
-}
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  *, *::before, *::after { animation: none !important; transition: none !important; }
-}
-</style>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..700;1,6..96,400..700&family=Archivo:wdth,wght@62..125,300..800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css">
 </head>
 <body>
-<header class="bar" id="bar">
-  <div class="wrap">
-    <a class="brand" href="#top" aria-label="Werenoi, haut de page">
-      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="bg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#33e0ff"/><stop offset=".5" stop-color="#8b5cff"/><stop offset="1" stop-color="#f5b942"/></linearGradient></defs><path d="M12 2 22 9 12 22 2 9Z" fill="none" stroke="url(#bg1)" stroke-width="1.8" stroke-linejoin="round"/><path d="M2 9h20M7 9l5 13 5-13M7 9l2.5-7M17 9l-2.5-7" fill="none" stroke="url(#bg1)" stroke-width="1" opacity=".8"/></svg>
-      <span>Werenoi</span>
-    </a>
-    <nav class="tabs" aria-label="Rubriques">
-      <a href="#top" data-sec="top">En direct</a>
-      <a href="#ecoutes" data-sec="ecoutes">24 h</a>
-      <a href="#certifications" data-sec="certifications">Certifications</a>
-      <a href="#titres" data-sec="titres">Tous les titres</a>
-    </nav>
-    <button type="button" class="kbd-search" id="go-search" aria-label="Rechercher un titre">
-      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      <span>Chercher un titre</span><kbd>/</kbd>
-    </button>
-  </div>
-</header>
+<a class="mark" href="#trident" aria-label="Werenoi, revenir au trident">
+  <svg width="18" height="22" viewBox="0 0 18 22" aria-hidden="true"><path d="M9 21V7M9 7 7.6 2.5 9 1l1.4 1.5L9 7Zm-6.5.5C2.6 10 4.6 11 9 11s6.4-1 6.5-3.5M2.5 7.5 1.4 3 2.6 2l.9 1.6M15.5 7.5 16.6 3 15.4 2l-.9 1.6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span>Werenoi</span>
+</a>
+<button type="button" class="seek" id="seek" aria-label="Chercher un titre dans le catalogue">
+  <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+</button>
+<nav class="rail" id="rail" aria-label="Univers">
+  <span class="fill" aria-hidden="true"></span>
+  <a href="#trident" data-w="trident"><span class="lbl">The Trident</span><span class="no">01</span><span class="tick"></span></a>
+  <a href="#archive" data-w="archive"><span class="lbl">The Archive</span><span class="no">02</span><span class="tick"></span></a>
+  <a href="#numbers" data-w="numbers"><span class="lbl">The Numbers</span><span class="no">03</span><span class="tick"></span></a>
+  <a href="#legacy" data-w="legacy"><span class="lbl">The Legacy</span><span class="no">04</span><span class="tick"></span></a>
+  <a href="#vault" data-w="vault"><span class="lbl">The Vault</span><span class="no">05</span><span class="tick"></span></a>
+  <span class="count num" id="rail-count">01 / 05</span>
+</nav>
 
-<main>
-  <section class="banner" id="top" aria-labelledby="h-top">
-    <canvas id="scene" aria-label="Scène 3D : un diamant noir entouré d'un cristal par titre. L'anneau montre la progression vers le prochain milliard de streams."></canvas>
-    <div class="ctip" id="ctip" role="status" aria-live="polite"></div>
-    <div class="banner-ui" id="banner-ui">
-      <div class="wrap">
-        <div class="copy">
-          <h1 id="h-top">Werenoi</h1>
-          <p class="lede">Les streams Spotify de <strong id="n-tracks">chaque titre</strong> et toutes ses certifications SNEP, mis à jour chaque soir.</p>
-          <p class="memo">En mémoire, 17 mai 2025.</p>
-          <div class="live">
-            <div class="live-label"><span class="pulse" aria-hidden="true"></span><span>Streams cumulés, estimés en direct</span></div>
-            <div class="counter" id="counter" aria-hidden="true">…</div>
-            <p class="counter-note" id="counter-note"></p>
+<main id="site">
+  <!-- 01 -->
+  <section class="world" id="trident" aria-label="The Trident">
+    <div class="world-inner">
+      <canvas id="trident-canvas" aria-label="Trident doré en 3D. Les objets qui tournent autour mènent aux autres univers."></canvas>
+      <svg class="t-fallback" viewBox="0 0 200 520" aria-hidden="true">
+        <defs><linearGradient id="tg" x1="0" x2="1"><stop offset="0" stop-color="#6e4d18"/><stop offset=".35" stop-color="#f5d58b"/><stop offset=".55" stop-color="#d6ae60"/><stop offset="1" stop-color="#5b3f12"/></linearGradient></defs>
+        <g fill="url(#tg)"><rect x="95" y="150" width="10" height="350" rx="4"/><path d="M100 10 112 60 104 56 104 150 96 150 96 56 88 60Z"/><path d="M40 70 50 40 56 72 52 70 54 112Q100 150 146 112L148 70 144 72 150 40 160 70 154 70 152 118Q100 170 48 118L46 70Z"/><rect x="90" y="300" width="20" height="60" rx="5"/><circle cx="100" cy="505" r="11"/></g>
+      </svg>
+      <div class="vignette"></div>
+      <div class="otip" id="otip" aria-hidden="true"></div>
+      <div class="t-ui">
+        <div class="wrap">
+          <div class="t-copy">
+            <h1>Werenoi</h1>
+            <p class="lede">Sa discographie, ses chiffres en direct et ses certifications, mis à jour chaque soir.</p>
+            <p class="memo">En mémoire, 17 mai 2025.</p>
+            <div class="t-live"><span class="dot" aria-hidden="true"></span><b id="t-counter" aria-hidden="true">…</b><span>streams Spotify, estimés en direct</span></div>
           </div>
-          <div class="strip" id="strip"></div>
+          <ul class="dest" id="dest" aria-label="Entrer dans un univers">
+            <li><button type="button" data-go="archive"><span class="n">02</span><span class="nm">The Archive</span><span class="fn">La discographie, projet par projet</span></button></li>
+            <li><button type="button" data-go="numbers"><span class="n">03</span><span class="nm">The Numbers</span><span class="fn">Les performances en direct</span></button></li>
+            <li><button type="button" data-go="legacy"><span class="n">04</span><span class="nm">The Legacy</span><span class="fn">Les certifications SNEP</span></button></li>
+            <li><button type="button" data-go="vault"><span class="n">05</span><span class="nm">The Vault</span><span class="fn">Le catalogue intégral</span></button></li>
+          </ul>
         </div>
       </div>
-    </div>
-    <p class="hint" id="hint"><span class="ring-cap" id="ring-cap"></span>Faites glisser pour tourner le diamant. Chaque cristal est un titre : <b>survolez-le</b> pour ses chiffres, <b>cliquez</b> pour ouvrir sa fiche.</p>
-    <a class="scroll-cue" href="#ecoutes" aria-label="Descendre vers les titres les plus écoutés"></a>
-  </section>
-
-  <section class="block" id="ecoutes" aria-labelledby="h-ecoutes">
-    <div class="wrap">
-      <div class="head">
-        <h2 id="h-ecoutes">Ce qui tourne le plus en 24 h</h2>
-        <p id="ecoutes-sub"></p>
-      </div>
-      <div class="duo">
-        <div>
-          <h3 class="sub">Titres les plus écoutés (cliquez pour ouvrir la fiche)</h3>
-          <ol class="hot" id="hot"></ol>
-        </div>
-        <div>
-          <h3 class="sub">Streams cumulés, relevé après relevé</h3>
-          <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
-          <p class="note" id="hist-note"></p>
-        </div>
-      </div>
+      <a class="cue" href="#archive"><span>Défiler pour entrer</span><i></i></a>
     </div>
   </section>
 
-  <section class="block" id="certifications" aria-labelledby="h-certs">
-    <div class="wrap">
-      <div class="head">
-        <h2 id="h-certs">Certifications SNEP</h2>
-        <p id="c-sub"></p>
+  <div class="gate" data-to="archive" style="--next-bg:#0d0b08"><div class="gate-stage"><div class="glow"></div><div class="door l"></div><div class="door r"></div><div class="seam"></div><div class="gt"><span class="gno">02</span><h2>The Archive</h2><p>La discographie</p></div></div></div>
+
+  <!-- 02 -->
+  <section class="world" id="archive" aria-labelledby="h-archive">
+    <div class="world-inner">
+      <div class="wrap">
+        <header class="w-head">
+          <h2 id="h-archive"><span class="no">02</span>The Archive</h2>
+          <p id="archive-sub">Chaque projet, de Telegram à Diamant Noir. Touchez une œuvre pour entrer dans le projet.</p>
+        </header>
+        <div class="gallery" id="gallery"></div>
+        <p class="archive-note">Œuvres originales créées pour ce site à partir des données de chaque projet : leurs motifs prennent la couleur de la plus haute certification SNEP. Les pochettes officielles sont visibles sur Spotify, depuis la page de chaque projet.</p>
       </div>
-      <div class="spectrum" id="spectrum" aria-hidden="true"></div>
-      <div class="legend" id="legend"></div>
-
-      <div class="albums" id="albums" aria-label="Albums"></div>
-
-      <h3 class="sub" style="margin-top:44px">Les plus récentes</h3>
-      <ol class="recent" id="recent"></ol>
-
-      <h3 class="sub" style="margin-top:44px">Toutes les certifications</h3>
-      <div class="toolbar">
-        <div class="seg" role="group" aria-label="Type">
-          <button type="button" data-cc="all" aria-pressed="true">Tout</button>
-          <button type="button" data-cc="Singles" aria-pressed="false">Singles</button>
-          <button type="button" data-cc="Albums" aria-pressed="false">Albums</button>
-        </div>
-        <div class="seg" role="group" aria-label="Niveau">
-          <button type="button" data-cl="all" aria-pressed="true">Tous niveaux</button>
-          <button type="button" data-cl="diamant" aria-pressed="false">Diamant</button>
-          <button type="button" data-cl="platine" aria-pressed="false">Platine</button>
-          <button type="button" data-cl="or" aria-pressed="false">Or</button>
-        </div>
-        <span class="count" id="c-count"></span>
-      </div>
-      <div class="chd" aria-hidden="true"><span>Constat</span><span>Niveau</span><span>Titre</span><span class="ccat">Type</span><span class="crel">Sorti le</span></div>
-      <ol class="clist" id="clist"></ol>
-      <button type="button" class="more" id="c-more" hidden></button>
     </div>
   </section>
 
-  <section class="block" id="titres" aria-labelledby="h-titres">
-    <div class="wrap">
-      <div class="head">
-        <h2 id="h-titres">Tous les titres</h2>
-        <p>Cliquez sur un titre pour voir son prochain palier, sa certification et l'écouter.</p>
-      </div>
-      <div class="toolbar">
-        <div class="search">
-          <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-          <label class="sr" for="q">Rechercher un titre</label>
-          <input id="q" type="search" placeholder="Rechercher un titre" autocomplete="off" enterkeyhint="search">
-          <button type="button" class="clear" id="q-clear" aria-label="Effacer la recherche" hidden>×</button>
+  <div class="gate" data-to="numbers" style="--next-bg:#080705"><div class="gate-stage"><div class="glow"></div><div class="door l"></div><div class="door r"></div><div class="seam"></div><div class="gt"><span class="gno">03</span><h2>The Numbers</h2><p>Les performances en direct</p></div></div></div>
+
+  <!-- 03 -->
+  <section class="world" id="numbers" aria-labelledby="h-numbers">
+    <div class="world-inner">
+      <div class="wrap">
+        <header class="w-head">
+          <h2 id="h-numbers"><span class="no">03</span>The Numbers</h2>
+          <p id="numbers-sub"></p>
+        </header>
+        <div class="console">
+          <div class="panel w7" id="p-live">
+            <h3>Compteur</h3>
+            <p class="sub">Streams Spotify cumulés de tous ses titres, estimés en direct.</p>
+            <div class="big" id="n-counter" aria-hidden="true">…</div>
+            <div class="kpis" id="n-kpis"></div>
+          </div>
+          <div class="panel w5" id="p-gauge">
+            <h3>Prochain milliard</h3>
+            <p class="sub">Progression depuis le dernier milliard franchi.</p>
+            <div class="gauge" id="n-gauge"></div>
+          </div>
+          <div class="panel w7" id="p-rank">
+            <h3>Classement</h3>
+            <p class="sub">Cliquez sur un titre pour ouvrir sa fiche.</p>
+            <div class="tools">
+              <div class="seg" role="group" aria-label="Mesure"><button type="button" data-m="s" aria-pressed="true">Streams</button><button type="button" data-m="d" aria-pressed="false">24 h</button><button type="button" data-m="share" aria-pressed="false">Part du total</button></div>
+              <div class="seg" role="group" aria-label="Rôle"><button type="button" data-r="all" aria-pressed="true">Tous</button><button type="button" data-r="lead" aria-pressed="false">Solo ou lead</button><button type="button" data-r="feat" aria-pressed="false">Featuring</button></div>
+            </div>
+            <div class="bars" id="n-bars"></div>
+          </div>
+          <div class="panel w5" id="p-proj">
+            <h3>Par projet</h3>
+            <p class="sub">Streams des titres, rangés dans leur projet d'origine.</p>
+            <div class="donut" id="n-donut"></div>
+          </div>
+          <div class="panel w5" id="p-miles">
+            <h3>Prochains paliers</h3>
+            <p class="sub">Les titres les plus proches de leur prochain cap, au rythme actuel.</p>
+            <ul class="miles" id="n-miles"></ul>
+          </div>
+          <div class="panel w7" id="p-hist">
+            <h3>Évolution</h3>
+            <p class="sub" id="n-hist-sub"></p>
+            <div class="chart" id="n-hist"><div class="ttip" id="n-hist-tip"></div></div>
+          </div>
+          <div class="panel w12" id="p-cmp">
+            <h3>Face à face</h3>
+            <p class="sub">Choisissez deux titres pour les comparer.</p>
+            <div class="cmp-pick"><label class="sr" for="cmp-a">Premier titre</label><select class="pick" id="cmp-a"></select><span>contre</span><label class="sr" for="cmp-b">Second titre</label><select class="pick" id="cmp-b"></select></div>
+            <div class="cmp" id="n-cmp"></div>
+          </div>
         </div>
-        <div class="seg" role="group" aria-label="Rôle de Werenoi">
-          <button type="button" data-f="all" aria-pressed="true">Tous</button>
-          <button type="button" data-f="lead" aria-pressed="false">Solo ou lead</button>
-          <button type="button" data-f="feat" aria-pressed="false">Featuring</button>
-          <button type="button" data-f="cert" aria-pressed="false">Certifiés</button>
-        </div>
-        <span class="count" id="count" aria-live="polite"></span>
       </div>
-      <div class="tbl">
-        <div class="thead" role="presentation">
-          <span>#</span>
+    </div>
+  </section>
+
+  <div class="gate" data-to="legacy" style="--next-bg:#060504"><div class="gate-stage"><div class="glow"></div><div class="door l"></div><div class="door r"></div><div class="seam"></div><div class="gt"><span class="gno">04</span><h2>The Legacy</h2><p>Les certifications SNEP</p></div></div></div>
+
+  <!-- 04 -->
+  <section class="world" id="legacy" aria-labelledby="h-legacy">
+    <div class="world-inner">
+      <div class="wrap">
+        <header class="w-head">
+          <h2 id="h-legacy"><span class="no">04</span>The Legacy</h2>
+          <p id="legacy-sub"></p>
+        </header>
+        <div class="cartels" id="cartels"></div>
+        <div class="tools">
+          <div class="seg" role="group" aria-label="Type"><button type="button" data-lc="all" aria-pressed="true">Tout</button><button type="button" data-lc="Singles" aria-pressed="false">Singles</button><button type="button" data-lc="Albums" aria-pressed="false">Albums</button></div>
+          <div class="seg" role="group" aria-label="Ordre"><button type="button" data-lo="recent" aria-pressed="true">Les plus récentes</button><button type="button" data-lo="old" aria-pressed="false">Les plus anciennes</button></div>
+        </div>
+        <div class="museum" id="museum"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="gate" data-to="vault" style="--next-bg:#0b0907"><div class="gate-stage"><div class="glow"></div><div class="door l"></div><div class="door r"></div><div class="seam"></div><div class="gt"><span class="gno">05</span><h2>The Vault</h2><p>Le catalogue intégral</p></div></div></div>
+
+  <!-- 05 -->
+  <section class="world" id="vault" aria-labelledby="h-vault">
+    <div class="world-inner">
+      <div class="wrap vault-wrap">
+        <header class="w-head">
+          <h2 id="h-vault"><span class="no">05</span>The Vault</h2>
+          <p id="vault-sub"></p>
+        </header>
+        <div class="vault-bar">
+          <div class="vsearch">
+            <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            <label class="sr" for="vq">Chercher un titre</label>
+            <input id="vq" type="search" placeholder="Chercher un titre" autocomplete="off" enterkeyhint="search">
+            <button type="button" class="clear" id="vq-clear" aria-label="Effacer la recherche" hidden>×</button>
+          </div>
+          <label class="sr" for="v-role">Rôle</label>
+          <select class="vsel" id="v-role"><option value="all">Tous les rôles</option><option value="lead">Solo ou lead</option><option value="feat">Featuring</option></select>
+          <label class="sr" for="v-cert">Certification</label>
+          <select class="vsel" id="v-cert"><option value="all">Toutes certifications</option><option value="diamant">Diamant</option><option value="platine">Platine</option><option value="or">Or</option><option value="none">Non certifiés</option></select>
+          <label class="sr" for="v-proj">Projet</label>
+          <select class="vsel" id="v-proj"><option value="all">Tous les projets</option></select>
+          <span class="vcount" id="vcount" aria-live="polite"></span>
+        </div>
+        <div class="vhead" role="presentation">
+          <span>N°</span>
           <button type="button" data-sort="t" aria-sort="none">Titre <span class="ar" aria-hidden="true">▾</span></button>
+          <button type="button" class="c-pj" data-sort="p" aria-sort="none">Projet <span class="ar" aria-hidden="true">▾</span></button>
           <button type="button" class="r" data-sort="s" aria-sort="descending">Streams <span class="ar" aria-hidden="true">▾</span></button>
-          <button type="button" class="r" data-sort="d" aria-sort="none">24 h <span class="ar" aria-hidden="true">▾</span></button>
-          <span></span>
+          <button type="button" class="r c-d" data-sort="d" aria-sort="none">24 h <span class="ar" aria-hidden="true">▾</span></button>
         </div>
-        <ol class="list" id="list"></ol>
-        <p class="empty" id="empty" hidden></p>
+        <ol class="vlist" id="vlist"></ol>
+        <p class="vempty" id="vempty" hidden></p>
+        <footer class="colophon">
+          <p>Streams : relevés chaque soir sur <a href="https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_songs.html" target="_blank" rel="noopener">kworb.net</a>, qui recopie les compteurs publics de Spotify. « 24 h » correspond aux streams gagnés entre les deux derniers relevés ; le compteur en direct est une estimation à ce rythme.</p>
+          <p>Projets et tracklists : page albums de kworb et pages d'intégration Spotify. Certifications : base officielle du <a href="https://snepmusique.com/les-certifications/?interprete=werenoi" target="_blank" rel="noopener">SNEP</a>, vérifiée chaque lundi (single Or à 15 millions d'équivalents streams, Platine à 30 millions, Diamant à 50 millions ; album Or à 50 000 ventes, Platine à 100 000, Diamant à 500 000).</p>
+          <p id="fetched"></p>
+        </footer>
       </div>
     </div>
   </section>
 </main>
 
-<footer>
-  <div class="wrap">
-    <p>Streams relevés chaque soir sur <a href="https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_songs.html" target="_blank" rel="noopener">kworb.net</a>, qui recopie les compteurs publics de Spotify. « 24 h » correspond aux streams gagnés entre les deux derniers relevés. Le compteur en direct est une estimation au rythme de ces 24 h ; le chiffre officiel est celui du dernier relevé.</p>
-    <p>Certifications : base officielle du <a href="https://snepmusique.com/les-certifications/?interprete=werenoi" target="_blank" rel="noopener">SNEP</a>, vérifiée chaque lundi. Un single est certifié Or à 15 millions d'équivalents streams, Platine à 30 millions et Diamant à 50 millions ; un album Or à 50 000 ventes, Platine à 100 000 et Diamant à 500 000.</p>
-    <p id="fetched"></p>
-  </div>
-</footer>
+<aside class="drawer" id="drawer" aria-label="Certification" aria-hidden="true"><button type="button" class="x" id="drawer-x" aria-label="Fermer">×</button><div id="drawer-body"></div></aside>
 
-<button type="button" class="top-btn" id="top-btn" aria-label="Revenir en haut">
-  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-</button>
+<section class="room" id="room" role="dialog" aria-modal="true" aria-label="Page détaillée" tabindex="-1">
+  <button type="button" class="back" id="room-back"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="room-back-label">Retour</span></button>
+  <div class="room-in" id="room-body"></div>
+</section>
+
+<div class="grain" id="grain" aria-hidden="true"></div>
 
 <script src="data.js"></script>
 <script src="certs.js"></script>
-<script>
-(function () {
-  "use strict";
-  var D = window.WERENOI_DATA, C = window.WERENOI_CERTS;
-  var $ = function (id) { return document.getElementById(id); };
-  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!D || !D.tracks || !D.tracks.length) {
-    $("counter").textContent = "—";
-    $("counter-note").textContent = "Les données n'ont pas pu être chargées. Rechargez la page dans un instant.";
-    return;
-  }
-
-  // ---------- helpers
-  var nf = new Intl.NumberFormat("fr-FR");
-  function fmt(n) { return nf.format(n); }
-  function compact(n) {
-    if (n >= 1e9) return (n / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " Md";
-    if (n >= 1e6) return (n / 1e6).toLocaleString("fr-FR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 }) + " M";
-    if (n >= 1e3) return Math.round(n / 1e3) + " k";
-    return String(n);
-  }
-  function asDate(iso) { return new Date(iso + "T12:00:00Z"); }
-  function longDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).replace(/^1 /, "1er "); }
-  function shortDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" }); }
-  function numDate(iso) { return iso ? asDate(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—"; }
-  function stepOf(s) { return s < 1e6 ? 1e5 : s < 1e7 ? 1e6 : s < 1e8 ? 1e7 : s < 1e9 ? 5e7 : 1e9; }
-  function nextStep(s) { var st = stepOf(s); return (Math.floor(s / st) + 1) * st; }
-  function inDays(gap, perDay) { return perDay > 0 ? Math.ceil(gap / perDay) : Infinity; }
-  function daysLabel(n) {
-    if (!isFinite(n)) return "—";
-    if (n > 3650) return "plus de 10 ans";
-    if (n > 730) return Math.round(n / 365) + " ans";
-    return n + (n > 1 ? " jours" : " jour");
-  }
-  function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
-  function tkey(s) { return norm(s.split(" - ")[0]).replace(/[^a-z0-9]/g, ""); }
-  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function short(t) { return t.t.split(" - ")[0]; }
-
-  var T = D.totals, tracks = D.tracks.slice();
-  tracks.sort(function (a, b) { return b.s - a.s; });
-  tracks.forEach(function (t, i) { t.rank = i + 1; });
-  var maxS = tracks[0].s, maxD = Math.max.apply(null, tracks.map(function (t) { return t.d; }));
-
-  // ---------- certifications prep
-  var LV = { "Or": 1, "Double Or": 2, "Platine": 3, "Double Platine": 4, "Triple Platine": 5, "Diamant": 6, "Double Diamant": 7, "Triple Diamant": 8, "Quadruple Diamant": 9 };
-  var ALB = { carre: "Carré", telegram: "Telegram", telegram2: "Telegram 2", pyramide: "Pyramide", pyramide2: "Pyramide 2", diamantnoir: "Diamant Noir" };
-  function family(n) { return /diamant/i.test(n) ? "diamant" : /platine/i.test(n) ? "platine" : "or"; }
-  function medalLabel(n) { var m = n.match(/^(Double|Triple|Quadruple) (.+)$/); return m ? m[2] + " ×" + { Double: 2, Triple: 3, Quadruple: 4 }[m[1]] : n; }
-  function medal(n) { return el("span", "medal m-" + family(n), medalLabel(n)); }
-  var byKey = {};
-  tracks.forEach(function (t) { var k = tkey(t.t); if (!byKey[k]) byKey[k] = t; });
-  function niceTitle(c) {
-    var k = tkey(c.t);
-    if (c.c === "Albums" && ALB[k]) return ALB[k];
-    if (c.c !== "Albums" && byKey[k]) return short(byKey[k]);
-    return c.t.charAt(0) + c.t.slice(1).toLowerCase();
-  }
-  function took(r, d) {
-    if (!r || !d) return "";
-    var a = asDate(r), b = asDate(d);
-    var m = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth() - (b.getUTCDate() < a.getUTCDate() ? 1 : 0);
-    if (m < 1) return "moins d'un mois";
-    var y = Math.floor(m / 12), mm = m % 12;
-    return (y ? y + (y > 1 ? " ans" : " an") : "") + (y && mm ? " " : "") + (mm ? mm + " mois" : "");
-  }
-  var certs = (C && C.certs ? C.certs.slice() : []).sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
-  function isNew(c) { return !!(c.seen && C.checked && (asDate(C.checked) - asDate(c.seen)) / 864e5 <= 7); }
-  var bestSingle = {};
-  certs.forEach(function (c) {
-    if (c.c !== "Singles") return;
-    var k = tkey(c.t), cur = bestSingle[k];
-    if (!cur || (LV[c.n] || 0) > (LV[cur.n] || 0)) bestSingle[k] = c;
-  });
-  function certOf(t) { return bestSingle[tkey(t.t)] || null; }
-
-  // ---------- banner copy + live counter
-  $("n-tracks").textContent = T.n + " titres";
-  var dayEnd = asDate(D.updated).getTime() + 12 * 3600e3;
-  function estimate(now) { return Math.round(T.s + T.d * Math.max(0, (now - dayEnd) / 1000) / 86400); }
-  var note = $("counter-note");
-  note.append("Chiffre officiel du " + longDate(asDate(D.updated)) + " : ");
-  note.appendChild(el("b", "num", fmt(T.s)));
-  note.append(". L'estimation avance au rythme des dernières 24 h.");
-  var cn = $("counter"), lastTxt = "";
-  function tick() { var txt = fmt(estimate(Date.now())); if (txt !== lastTxt) { cn.textContent = txt; lastTxt = txt; } }
-  tick(); setInterval(tick, REDUCED ? 5000 : 120);
-  function stat(cls, v, label) { var d = el("div", cls); d.append(el("b", null, v), el("span", null, label)); $("strip").appendChild(d); }
-  stat("c1", "+" + fmt(T.d), "streams en 24 h");
-  stat("c2", String(T.n), "titres suivis");
-  if (certs.length) stat("c3", String(certs.length), "certifications SNEP");
-
-  var goal = (Math.floor(T.s / 1e9) + 1) * 1e9, goalDays = inDays(goal - T.s, T.d), goalProg = (T.s - (goal - 1e9)) / 1e9;
-  var rc = $("ring-cap");
-  rc.append("L'anneau : ");
-  rc.appendChild(el("b", null, (goalProg * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"));
-  rc.append(" du chemin vers " + goal / 1e9 + " milliards");
-  if (isFinite(goalDays)) { var eta = asDate(D.updated); eta.setUTCDate(eta.getUTCDate() + goalDays); rc.append(", estimés vers le " + longDate(eta) + "."); }
-
-  // ---------- top 24 h (relief bars)
-  var HUES = [["#ff3d8b", "#f5b942"], ["#8b5cff", "#ff3d8b"], ["#33e0ff", "#8b5cff"], ["#3dffb5", "#33e0ff"], ["#f5b942", "#ff7a6b"], ["#ff7ab3", "#8b5cff"], ["#33e0ff", "#3dffb5"], ["#ffd27a", "#f5b942"]];
-  $("ecoutes-sub").textContent = "Relevé du " + longDate(asDate(D.updated)) + ".";
-  tracks.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 8).forEach(function (t, i) {
-    var li = el("li"), b = el("button"); b.type = "button";
-    b.style.setProperty("--c1", HUES[i][0]); b.style.setProperty("--c2", HUES[i][1]);
-    var pr = el("span", "prism"), f = el("span", "f"); pr.appendChild(f);
-    b.append(el("span", "pos", String(i + 1)), el("span", "nm", short(t) + (t.f ? " (feat.)" : "")), el("span", "val", "+" + fmt(t.d)), pr);
-    b.setAttribute("aria-label", short(t) + ", " + fmt(t.d) + " streams en 24 heures. Ouvrir la fiche.");
-    b.addEventListener("click", function () { openTrack(t.rank); });
-    li.appendChild(b); $("hot").appendChild(li);
-    requestAnimationFrame(function () { requestAnimationFrame(function () { f.style.width = "calc(" + (t.d / maxD * 100).toFixed(1) + "% - 8px)"; }); });
-  });
-
-  // ---------- history chart
-  var Hs = (D.history || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-  $("hist-note").textContent = Hs.length + (Hs.length > 1 ? " relevés depuis le " + longDate(asDate(Hs[0].date)) + ". " : " relevé. ") + "La courbe s'allonge à chaque mise à jour quotidienne.";
-  var NS = "http://www.w3.org/2000/svg";
-  function sv(name, attrs, parent) { var e = document.createElementNS(NS, name); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
-  function drawChart() {
-    var box = $("chart"), old = box.querySelector("svg");
-    if (old) old.remove();
-    if (!Hs.length) return;
-    var W = Math.max(260, box.clientWidth), Ht = 230, pl = 8, pr = 8, pt = 34, pb = 26;
-    var svg = sv("svg", { viewBox: "0 0 " + W + " " + Ht, role: "img", "aria-label": "Évolution des streams cumulés de Werenoi" });
-    var defs = sv("defs", {}, svg);
-    var ga = sv("linearGradient", { id: "area", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-    sv("stop", { offset: "0", "stop-color": "#8b5cff", "stop-opacity": ".45" }, ga);
-    sv("stop", { offset: "1", "stop-color": "#ff3d8b", "stop-opacity": "0" }, ga);
-    var gl = sv("linearGradient", { id: "lineg", x1: 0, y1: 0, x2: 1, y2: 0 }, defs);
-    sv("stop", { offset: "0", "stop-color": "#33e0ff" }, gl); sv("stop", { offset: ".5", "stop-color": "#8b5cff" }, gl); sv("stop", { offset: "1", "stop-color": "#f5b942" }, gl);
-    var t0 = asDate(Hs[0].date).getTime(), t1 = asDate(Hs[Hs.length - 1].date).getTime();
-    var vals = Hs.map(function (h) { return h.s; });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    var pad = Math.max((hi - lo) * .15, hi * .0005); lo -= pad; hi += pad;
-    var x = function (d) { return t1 === t0 ? W / 2 : pl + (asDate(d).getTime() - t0) / (t1 - t0) * (W - pl - pr); };
-    var y = function (v) { return pt + (1 - (v - lo) / (hi - lo)) * (Ht - pt - pb); };
-    for (var g = 0; g <= 3; g++) { var gy = pt + g * (Ht - pt - pb) / 3; sv("line", { x1: pl, x2: W - pr, y1: gy, y2: gy, stroke: "#2a2552", "stroke-width": 1 }, svg); }
-    if (Hs.length > 1) {
-      var dl = Hs.map(function (h, i) { return (i ? "L" : "M") + x(h.date).toFixed(1) + " " + y(h.s).toFixed(1); }).join(" ");
-      sv("path", { d: dl + " L" + x(Hs[Hs.length - 1].date).toFixed(1) + " " + (Ht - pb) + " L" + x(Hs[0].date).toFixed(1) + " " + (Ht - pb) + " Z", fill: "url(#area)" }, svg);
-      sv("path", { d: dl, fill: "none", stroke: "url(#lineg)", "stroke-width": 3, "stroke-linejoin": "round", style: "filter:drop-shadow(0 0 8px rgba(139,92,255,.7))" }, svg);
-    }
-    var tip = $("tip");
-    Hs.forEach(function (h, i) {
-      var lastP = i === Hs.length - 1;
-      var c = sv("circle", { cx: x(h.date), cy: y(h.s), r: lastP ? 5.5 : 4, fill: lastP ? "#f5b942" : "#0a0820", stroke: lastP ? "#f5b942" : "#33e0ff", "stroke-width": 2, tabindex: 0, "aria-label": shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams" }, svg);
-      var hit = sv("circle", { cx: x(h.date), cy: y(h.s), r: 16, fill: "transparent" }, svg);
-      function show() {
-        tip.textContent = shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams";
-        var sc = box.clientWidth / W;
-        tip.style.left = Math.min(Math.max(x(h.date) * sc, 90), box.clientWidth - 90) + "px";
-        tip.style.top = (y(h.s) * sc) + "px";
-        tip.classList.add("on");
-      }
-      function hide() { tip.classList.remove("on"); }
-      [c, hit].forEach(function (n) { n.addEventListener("mouseenter", show); n.addEventListener("mouseleave", hide); n.addEventListener("focus", show); n.addEventListener("blur", hide); n.addEventListener("touchstart", show, { passive: true }); });
-    });
-    var f = Hs[0], l = Hs[Hs.length - 1];
-    var lab = sv("text", { x: x(l.date), y: y(l.s) - 13, "text-anchor": Hs.length > 1 ? "end" : "middle", class: "lbl" }, svg); lab.textContent = compact(l.s);
-    if (Hs.length > 1) { var l0 = sv("text", { x: x(f.date), y: y(f.s) - 13, "text-anchor": "start", class: "ax" }, svg); l0.textContent = compact(f.s); }
-    var a0 = sv("text", { x: pl, y: Ht - 6, "text-anchor": "start", class: "ax" }, svg); a0.textContent = shortDate(asDate(f.date));
-    if (Hs.length > 1) { var a1 = sv("text", { x: W - pr, y: Ht - 6, "text-anchor": "end", class: "ax" }, svg); a1.textContent = shortDate(asDate(l.date)); }
-    box.insertBefore(svg, tip);
-  }
-  drawChart();
-  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(drawChart, 120); });
-
-  // ---------- certifications
-  if (!certs.length) {
-    $("c-sub").textContent = "Les certifications n'ont pas pu être chargées. Rechargez la page dans un instant.";
-  } else {
-    $("c-sub").textContent = certs.length + " certifications, la plus récente le " + longDate(asDate(certs[0].d)) + ". Base vérifiée le " + longDate(asDate(C.checked)) + ".";
-    [["diamant", "Diamant"], ["platine", "Platine"], ["or", "Or"]].forEach(function (f) {
-      var list = certs.filter(function (c) { return family(c.n) === f[0]; });
-      var s = list.filter(function (c) { return c.c === "Singles"; }).length, al = list.length - s;
-      var seg = el("span", "s-" + f[0]); seg.style.flexGrow = "0"; seg.style.flexBasis = "0";
-      $("spectrum").appendChild(seg);
-      requestAnimationFrame(function () { requestAnimationFrame(function () { seg.style.flexGrow = String(list.length); }); });
-      var d = el("div");
-      d.append(el("span", "k lk-" + f[0], f[1]), el("b", "num", String(list.length)), el("span", null, s + " single" + (s > 1 ? "s" : "") + (al ? ", " + al + " album" + (al > 1 ? "s" : "") : "")));
-      $("legend").appendChild(d);
-    });
-
-    var albums = {};
-    certs.filter(function (c) { return c.c === "Albums"; }).forEach(function (c) { var k = tkey(c.t); (albums[k] = albums[k] || []).push(c); });
-    Object.keys(albums).map(function (k) { return albums[k].sort(function (a, b) { return (LV[b.n] || 0) - (LV[a.n] || 0); }); })
-      .sort(function (a, b) { return a[0].r < b[0].r ? -1 : 1; })
-      .forEach(function (list) {
-        var top = list[0], d = el("div", "album f-" + family(top.n));
-        var mr = el("div", "medal-row"); mr.appendChild(medal(top.n)); if (isNew(top)) mr.appendChild(el("span", "chip new", "nouveau"));
-        d.append(el("span", "al", niceTitle(top)), mr);
-        list.forEach(function (c) { d.appendChild(el("p", null, medalLabel(c.n) + " le " + longDate(asDate(c.d)))); });
-        d.appendChild(el("p", null, "Sorti le " + longDate(asDate(top.r))));
-        $("albums").appendChild(d);
-        if (!REDUCED) {
-          d.addEventListener("pointermove", function (e) {
-            if (e.pointerType === "touch") return;
-            var r = d.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
-            d.style.transform = "perspective(800px) rotateY(" + ((px - .5) * 18).toFixed(2) + "deg) rotateX(" + ((.5 - py) * 14).toFixed(2) + "deg) translateZ(10px)";
-            d.style.setProperty("--mx", (px * 100).toFixed(1) + "%"); d.style.setProperty("--my", (py * 100).toFixed(1) + "%"); d.style.setProperty("--glare", "1");
-          });
-          d.addEventListener("pointerleave", function () { d.style.transform = "perspective(800px)"; d.style.setProperty("--glare", "0"); });
-        }
-      });
-
-    certs.slice(0, 4).forEach(function (c) {
-      var li = el("li", "d-" + family(c.n));
-      var tm = el("time", null, longDate(asDate(c.d)) + (c.c === "Albums" ? ", album" : "")); tm.dateTime = c.d;
-      var mr = el("div", "medal-row"); mr.appendChild(medal(c.n)); if (isNew(c)) mr.appendChild(el("span", "chip new", "nouveau"));
-      li.append(tm, mr, el("span", "ct", niceTitle(c)), el("span", "ca", c.a));
-      $("recent").appendChild(li);
-    });
-
-    var cstate = { cc: "all", cl: "all", all: false };
-    var renderCerts = function () {
-      var rows = certs.filter(function (c) {
-        if (cstate.cc !== "all" && c.c !== cstate.cc) return false;
-        if (cstate.cl !== "all" && family(c.n) !== cstate.cl) return false;
-        return true;
-      });
-      var LIMIT = 10, shown = cstate.all ? rows : rows.slice(0, LIMIT), more = $("c-more"), ol = $("clist");
-      ol.textContent = "";
-      shown.forEach(function (c) {
-        var li = el("li", "crow");
-        var cm = el("span", "cm"); cm.appendChild(medal(c.n));
-        var ti = el("div", "cti"), b = el("b", null, niceTitle(c));
-        if (isNew(c)) { b.append(" "); b.appendChild(el("span", "chip new", "nouveau")); }
-        ti.append(b, el("span", null, c.a + (took(c.r, c.d) ? ", obtenu en " + took(c.r, c.d) : "")));
-        li.append(el("span", "cd num", numDate(c.d)), cm, ti, el("span", "ccat", c.c === "Albums" ? "Album" : "Single"), el("span", "crel num", numDate(c.r)));
-        ol.appendChild(li);
-      });
-      more.hidden = rows.length <= LIMIT;
-      more.textContent = cstate.all ? "Réduire la liste" : "Afficher les " + (rows.length - LIMIT) + " autres";
-      more.setAttribute("aria-expanded", String(cstate.all));
-      $("c-count").textContent = rows.length + (rows.length > 1 ? " certifications" : " certification");
-      document.querySelectorAll("[data-cc]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cc === cstate.cc)); });
-      document.querySelectorAll("[data-cl]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cl === cstate.cl)); });
-    };
-    document.querySelectorAll("[data-cc]").forEach(function (bt) { bt.addEventListener("click", function () { cstate.cc = bt.dataset.cc; renderCerts(); }); });
-    document.querySelectorAll("[data-cl]").forEach(function (bt) { bt.addEventListener("click", function () { cstate.cl = bt.dataset.cl; renderCerts(); }); });
-    $("c-more").addEventListener("click", function () { cstate.all = !cstate.all; renderCerts(); if (!cstate.all) $("clist").scrollIntoView({ block: "start" }); });
-    renderCerts();
-  }
-
-  // ---------- catalogue
-  var state = { q: "", f: "all", sort: "s", dir: -1 };
-  var open = {};
-  try { var saved = JSON.parse(localStorage.getItem("werenoi-v3") || "null"); if (saved) { state.f = saved.f || "all"; state.sort = saved.sort || "s"; state.dir = saved.dir || -1; } } catch (e) {}
-  function key(t) { return t.t + "|" + t.f; }
-  function detail(t) {
-    var d = el("div", "detail");
-    var step = nextStep(t.s), prev = step - stepOf(t.s), days = inDays(step - t.s, t.d);
-    var p1 = el("div"); p1.append(el("span", "k", "Prochain palier"), el("span", "v", compact(step) + " dans " + daysLabel(days)));
-    var pr = el("div", "prog"), pi = el("i"); pi.style.width = Math.max(2, (t.s - prev) / (step - prev) * 100).toFixed(1) + "%"; pr.appendChild(pi); p1.appendChild(pr);
-    var p2 = el("div"); p2.append(el("span", "k", "Part des streams de Werenoi"), el("span", "v", (t.s / T.s * 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " %"));
-    var bc = certOf(t);
-    var p3 = el("div"); p3.appendChild(el("span", "k", "Certification SNEP"));
-    if (bc) { var mm = el("div", "medal-row"); mm.appendChild(medal(bc.n)); p3.append(mm, el("span", "k", "le " + longDate(asDate(bc.d)))); }
-    else p3.appendChild(el("span", "v", "Aucune pour l'instant"));
-    var p4 = el("div"), a = el("a", "btn");
-    a.href = t.i ? "https://open.spotify.com/track/" + encodeURIComponent(t.i) : "https://open.spotify.com/search/" + encodeURIComponent(t.t + " Werenoi");
-    a.target = "_blank"; a.rel = "noopener"; a.textContent = "Écouter sur Spotify";
-    p4.appendChild(a);
-    d.append(p1, p2, p3, p4);
-    return d;
-  }
-  function render() {
-    var q = norm(state.q.trim());
-    var rows = tracks.filter(function (t) {
-      if (state.f === "lead" && t.f) return false;
-      if (state.f === "feat" && !t.f) return false;
-      if (state.f === "cert" && !certOf(t)) return false;
-      return !q || norm(t.t).indexOf(q) !== -1;
-    });
-    rows.sort(function (a, b) {
-      var r = state.sort === "t" ? a.t.localeCompare(b.t, "fr", { sensitivity: "base", numeric: true }) : (a[state.sort] - b[state.sort]);
-      return state.sort === "t" ? r * -state.dir : r * state.dir;
-    });
-    var list = $("list"); list.textContent = "";
-    var frag = document.createDocumentFragment();
-    rows.forEach(function (t) {
-      var li = el("li"); li.id = "t-" + t.rank;
-      var row = el("button", "trow"); row.type = "button";
-      var id = "d-" + t.rank; row.setAttribute("aria-controls", id); row.setAttribute("aria-expanded", String(!!open[key(t)]));
-      var rk = el("span", "rk", String(t.rank));
-      if (typeof t.p === "number") {
-        var diff = t.p - t.rank, mv = el("span", "mv " + (diff > 0 ? "up" : diff < 0 ? "down" : "eq"), diff > 0 ? "▲" + diff : diff < 0 ? "▼" + (-diff) : "=");
-        mv.title = diff === 0 ? "Même rang qu'au relevé précédent" : (diff > 0 ? "Gagne " : "Perd ") + Math.abs(diff) + " place(s) depuis le relevé précédent";
-        rk.appendChild(mv);
-      }
-      var ti = el("span", "ti"), line = el("span", "ti-line");
-      line.appendChild(el("strong", null, short(t)));
-      if (t.f) line.appendChild(el("span", "chip", "feat."));
-      var bc = certOf(t); if (bc) line.appendChild(medal(bc.n));
-      if (t.n) line.appendChild(el("span", "chip new", "nouveau"));
-      var beam = el("span", "beam"), fi = el("i"); fi.style.width = Math.max(.6, t.s / maxS * 100).toFixed(1) + "%"; beam.appendChild(fi);
-      ti.append(line, beam);
-      var chev = el("span", "chev"); chev.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-      var nums = el("span", "nums"); nums.append(el("span", "num tot r", fmt(t.s)), el("span", "num day r", "+" + fmt(t.d)));
-      row.append(rk, ti, nums, chev);
-      li.appendChild(row);
-      var holder = el("div"); holder.id = id;
-      if (open[key(t)]) holder.appendChild(detail(t));
-      li.appendChild(holder);
-      row.addEventListener("click", function () {
-        var k = key(t), isOpen = !open[k];
-        if (isOpen) open[k] = 1; else delete open[k];
-        row.setAttribute("aria-expanded", String(isOpen));
-        holder.textContent = ""; if (isOpen) holder.appendChild(detail(t));
-      });
-      frag.appendChild(li);
-    });
-    list.appendChild(frag);
-    $("count").textContent = rows.length + (rows.length > 1 ? " titres" : " titre");
-    var empty = $("empty");
-    empty.hidden = rows.length > 0;
-    if (!rows.length) empty.textContent = "Aucun titre ne correspond à « " + state.q.trim() + " ». Vérifiez l'orthographe ou affichez tous les titres.";
-    document.querySelectorAll("[data-f]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.f === state.f)); });
-    document.querySelectorAll("[data-sort]").forEach(function (b) { b.setAttribute("aria-sort", b.dataset.sort === state.sort ? (state.dir < 0 ? "descending" : "ascending") : "none"); });
-    $("q-clear").hidden = !state.q;
-    try { localStorage.setItem("werenoi-v3", JSON.stringify({ f: state.f, sort: state.sort, dir: state.dir })); } catch (e) {}
-  }
-  function openTrack(rank) {
-    var t = tracks[rank - 1]; if (!t) return;
-    var needReset = state.q || (state.f === "lead" && t.f) || (state.f === "feat" && !t.f) || (state.f === "cert" && !certOf(t));
-    if (needReset) { state.q = ""; $("q").value = ""; state.f = "all"; }
-    open[key(t)] = 1;
-    render();
-    var li = $("t-" + rank);
-    if (li) {
-      li.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth", block: "start" });
-      li.classList.remove("flash"); void li.offsetWidth; li.classList.add("flash");
-      var b = li.querySelector(".trow"); if (b) setTimeout(function () { b.focus({ preventScroll: true }); }, REDUCED ? 0 : 600);
-    }
-  }
-  var qt;
-  $("q").addEventListener("input", function (e) { state.q = e.target.value; clearTimeout(qt); qt = setTimeout(render, 60); });
-  $("q").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.target.value = ""; state.q = ""; render(); } });
-  $("q-clear").addEventListener("click", function () { $("q").value = ""; state.q = ""; render(); $("q").focus(); });
-  document.querySelectorAll("[data-f]").forEach(function (b) { b.addEventListener("click", function () { state.f = b.dataset.f; render(); }); });
-  document.querySelectorAll("[data-sort]").forEach(function (b) {
-    b.addEventListener("click", function () {
-      var s = b.dataset.sort;
-      if (state.sort === s) state.dir = -state.dir; else { state.sort = s; state.dir = s === "t" ? 1 : -1; }
-      render();
-    });
-  });
-  render();
-
-  // ---------- navigation, banner scroll-away
-  function focusSearch() { $("titres").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); setTimeout(function () { $("q").focus({ preventScroll: true }); }, REDUCED ? 0 : 450); }
-  $("go-search").addEventListener("click", focusSearch);
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); focusSearch(); }
-  });
-  var tabs = document.querySelectorAll(".tabs a"), secs = ["top", "ecoutes", "certifications", "titres"].map($);
-  var bar = $("bar"), banner = $("top"), ui = $("banner-ui"), hint = $("hint"), topBtn = $("top-btn"), ticking = false;
-  window.WN_SCROLL = 0;
-  function onScroll() {
-    ticking = false;
-    var y = window.scrollY, h = banner.offsetHeight || 1, p = Math.min(1, Math.max(0, y / h));
-    window.WN_SCROLL = p;
-    if (!REDUCED) {
-      ui.style.transform = "translate3d(0," + (-y * .35).toFixed(1) + "px,0) scale(" + (1 - p * .06).toFixed(3) + ")";
-      ui.style.opacity = String(Math.max(0, 1 - p * 1.5));
-      hint.style.opacity = String(Math.max(0, 1 - p * 3));
-    }
-    bar.classList.toggle("solid", y > 30);
-    topBtn.classList.toggle("on", y > 900);
-    var best = "top";
-    secs.forEach(function (s) { if (s.getBoundingClientRect().top <= 140) best = s.id; });
-    if (window.innerHeight + y >= document.documentElement.scrollHeight - 4) best = "titres";
-    tabs.forEach(function (a) {
-      var on = a.dataset.sec === best;
-      if (on && a.getAttribute("aria-current") !== "true") { var nav = a.parentNode; var left = a.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft - 8; nav.scrollTo({ left: Math.max(0, left), behavior: REDUCED ? "auto" : "smooth" }); }
-      a.setAttribute("aria-current", String(on));
-    });
-  }
-  window.addEventListener("scroll", function () { if (!ticking) { ticking = true; requestAnimationFrame(onScroll); } }, { passive: true });
-  onScroll();
-  topBtn.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" }); });
-  if (D.fetched) $("fetched").textContent = "Dernière collecte : " + new Date(D.fetched).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" }) + " (heure de Paris).";
-
-  // shared with the 3D scene
-  window.WN = {
-    tracks: tracks, maxS: maxS, goalProg: goalProg, reduced: REDUCED,
-    fam: function (t) { var c = certOf(t); return c ? family(c.n) : "none"; },
-    certLabel: function (t) { var c = certOf(t); return c ? c.n : ""; },
-    medal: function (n) { return medal(n); },
-    fmt: fmt, short: short, openTrack: openTrack
-  };
-})();
-</script>
-
+<script src="albums.js"></script>
+<script src="assets/app.js"></script>
 <script type="importmap">
 { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
 </script>
-<script type="module">
-import * as THREE from "three";
-import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-
-const WN = window.WN;
-const canvas = document.getElementById("scene");
-const banner = document.getElementById("top");
-const tipEl = document.getElementById("ctip");
-if (WN && canvas) start();
-
-function start() {
-  let renderer;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
-  } catch (e) { return; }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.0;
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-  const scene = new THREE.Scene();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
-
-  const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
-  camera.position.set(0, 0, 12);
-
-  const world = new THREE.Group(); scene.add(world);
-  const hero = new THREE.Group(); world.add(hero);
-
-  // black diamond (brilliant-cut profile, faceted)
-  const profile = [new THREE.Vector2(0.001, -1.75), new THREE.Vector2(1.72, -0.05), new THREE.Vector2(1.72, 0.1), new THREE.Vector2(1.04, 0.8), new THREE.Vector2(0.001, 0.8)];
-  const gemGeo = new THREE.LatheGeometry(profile, 16);
-  const gemMat = new THREE.MeshPhysicalMaterial({
-    color: 0x07060f, metalness: 0.55, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.04,
-    iridescence: 0.9, iridescenceIOR: 2.0, iridescenceThicknessRange: [300, 1000], envMapIntensity: 1.1, flatShading: true
-  });
-  const gem = new THREE.Mesh(gemGeo, gemMat);
-  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(gemGeo, 8), new THREE.LineBasicMaterial({ color: 0xf5b942, transparent: true, opacity: 0.55 }));
-  gem.add(edges);
-  const gemPivot = new THREE.Group(); gemPivot.add(gem); hero.add(gemPivot);
-  gem.rotation.x = 0.32;
-
-  // progress ring towards the next billion, coloured cyan -> violet -> gold
-  const ringR = 2.8, prog = Math.max(0.01, Math.min(1, WN.goalProg));
-  const ringGroup = new THREE.Group(); hero.add(ringGroup);
-  ringGroup.rotation.set(1.2, 0.18, 0);
-  ringGroup.add(new THREE.Mesh(new THREE.TorusGeometry(ringR, 0.016, 8, 220), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.14 })));
-  const arcGeo = new THREE.TorusGeometry(ringR, 0.05, 14, 260, Math.PI * 2 * prog);
-  const cols = [], cA = new THREE.Color(0x33e0ff), cB = new THREE.Color(0x8b5cff), cC = new THREE.Color(0xf5b942), tmp = new THREE.Color();
-  const pos = arcGeo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    let a = Math.atan2(pos.getY(i), pos.getX(i)); if (a < 0) a += Math.PI * 2;
-    const k = Math.min(1, a / (Math.PI * 2 * prog));
-    if (k < 0.5) tmp.copy(cA).lerp(cB, k * 2); else tmp.copy(cB).lerp(cC, (k - 0.5) * 2);
-    cols.push(tmp.r, tmp.g, tmp.b);
-  }
-  arcGeo.setAttribute("color", new THREE.Float32BufferAttribute(cols, 3));
-  ringGroup.add(new THREE.Mesh(arcGeo, new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false })));
-  const endA = Math.PI * 2 * prog;
-  const dot = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 20), new THREE.MeshBasicMaterial({ color: 0xffd27a, toneMapped: false }));
-  dot.position.set(Math.cos(endA) * ringR, Math.sin(endA) * ringR, 0);
-  ringGroup.add(dot);
-  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xffc35a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
-  glow.scale.set(1.1, 1.1, 1); dot.add(glow);
-
-  // one crystal per song (top 42): size = streams, colour = certification
-  const PAL = { diamant: [0x33e0ff, 0x8b5cff, 0xb68cff], platine: [0xdfe4ee, 0xc4cbd8], or: [0xf5b942, 0xffc861], none: [0xff3d8b, 0x3dffb5, 0xff7ab3] };
-  const GEOS = [new THREE.OctahedronGeometry(1), new THREE.IcosahedronGeometry(1, 0), new THREE.DodecahedronGeometry(1, 0), new THREE.TetrahedronGeometry(1.2)];
-  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  const crystals = [];
-  const field = new THREE.Group(); world.add(field);
-  WN.tracks.slice(0, 42).forEach((t, i) => {
-    const fam = WN.fam(t), list = PAL[fam];
-    const color = new THREE.Color(list[i % list.length]);
-    const mat = new THREE.MeshPhysicalMaterial({
-      color, metalness: fam === "platine" ? 0.9 : 0.35, roughness: fam === "platine" ? 0.15 : 0.12, clearcoat: 1,
-      iridescence: fam === "diamant" ? 1 : 0.35, iridescenceIOR: 1.5, flatShading: true,
-      emissive: color, emissiveIntensity: 0.22, envMapIntensity: 0.9
-    });
-    const m = new THREE.Mesh(GEOS[i % GEOS.length], mat);
-    const size = 0.16 + 0.42 * Math.sqrt(t.s / WN.maxS);
-    let x, y, z, tries = 0;
-    do { x = (rnd() * 2 - 1) * 10; y = (rnd() * 2 - 1) * 5.2; z = -7 + rnd() * 9; tries++; } while (Math.hypot(x - 3.2, y, z) < 3.4 && tries < 50);
-    if (x < 0.5 && Math.abs(y) < 4.2) z = -12 + rnd() * 4;
-    m.position.set(x, y, z);
-    m.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6);
-    m.scale.setScalar(size);
-    m.userData = { t, size, baseY: y, phase: rnd() * Math.PI * 2, spin: new THREE.Vector3(rnd() - .5, rnd() - .5, rnd() - .5).multiplyScalar(0.9), hover: 0, pop: 0 };
-    field.add(m); crystals.push(m);
-  });
-
-  // dust
-  const dustGeo = new THREE.BufferGeometry(), dp = [];
-  for (let i = 0; i < 500; i++) dp.push((rnd() * 2 - 1) * 16, (rnd() * 2 - 1) * 9, -14 + rnd() * 14);
-  dustGeo.setAttribute("position", new THREE.Float32BufferAttribute(dp, 3));
-  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color: 0xc9bfff, size: 0.035, transparent: true, opacity: 0.7, depthWrite: false }));
-  world.add(dust);
-
-  // lights
-  scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-  const keyL = new THREE.DirectionalLight(0xffe2b0, 1.6); keyL.position.set(-5, 6, 6); scene.add(keyL);
-  const pinkL = new THREE.PointLight(0xff3d8b, 40, 0, 2); scene.add(pinkL);
-  const cyanL = new THREE.PointLight(0x33e0ff, 40, 0, 2); scene.add(cyanL);
-  const violetL = new THREE.PointLight(0x8b5cff, 25, 0, 2); violetL.position.set(0, -4, 4); scene.add(violetL);
-
-  // layout
-  let W = 1, H = 1, wide = true;
-  function resize() {
-    W = banner.clientWidth; H = banner.clientHeight;
-    renderer.setSize(W, H, false);
-    camera.aspect = W / H;
-    wide = W >= 900;
-    camera.fov = wide ? 35 : 52;
-    camera.updateProjectionMatrix();
-    hero.position.set(wide ? 3.2 : 0, wide ? 0.2 : 4.5, 0);
-    hero.scale.setScalar(wide ? 0.78 : 0.6);
-    wake();
-  }
-
-  // interaction
-  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-  let px = 0, py = 0, camX = 0, camY = 0;
-  let hovered = null, dragging = false, lastX = 0, downX = 0, downY = 0, spinV = 0, rotY = 0, moved = false;
-  function pick(clientX, clientY) {
-    const r = canvas.getBoundingClientRect();
-    ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
-    ray.setFromCamera(ndc, camera);
-    const hit = ray.intersectObjects(crystals, false)[0];
-    return hit ? hit.object : null;
-  }
-  function showTip(m, clientX, clientY) {
-    const t = m.userData.t, r = banner.getBoundingClientRect();
-    tipEl.textContent = "";
-    const s = document.createElement("strong"); s.textContent = WN.short(t) + (t.f ? " (feat.)" : "");
-    const l1 = document.createElement("span"); l1.className = "s"; l1.textContent = WN.fmt(t.s) + " streams, n° " + t.rank;
-    const l2 = document.createElement("span"); l2.className = "s"; l2.style.display = "block"; l2.textContent = "+" + WN.fmt(t.d) + " en 24 h";
-    tipEl.append(s, l1, l2);
-    const cl = WN.certLabel(t); if (cl) tipEl.appendChild(WN.medal(cl));
-    const go = document.createElement("span"); go.className = "go"; go.textContent = "Cliquez pour ouvrir la fiche"; tipEl.appendChild(go);
-    let x = clientX - r.left; const y = clientY - r.top;
-    if (x > W - 230) x -= 260;
-    tipEl.style.left = x + "px"; tipEl.style.top = Math.max(90, Math.min(H - 80, y)) + "px";
-    tipEl.classList.add("on");
-  }
-  function hideTip() { tipEl.classList.remove("on"); }
-  canvas.addEventListener("pointermove", (e) => {
-    const r = canvas.getBoundingClientRect();
-    px = ((e.clientX - r.left) / r.width) * 2 - 1; py = ((e.clientY - r.top) / r.height) * 2 - 1;
-    if (dragging) {
-      const dx = e.clientX - lastX; lastX = e.clientX;
-      if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) moved = true;
-      spinV = dx * 0.006; rotY += spinV;
-      wake();
-      return;
-    }
-    if (e.pointerType === "touch") return;
-    const m = pick(e.clientX, e.clientY);
-    if (m !== hovered) { hovered = m; canvas.classList.toggle("over-crystal", !!m); }
-    if (m) showTip(m, e.clientX, e.clientY); else hideTip();
-    wake();
-  });
-  canvas.addEventListener("pointerleave", () => { hovered = null; canvas.classList.remove("over-crystal"); hideTip(); px = py = 0; });
-  canvas.addEventListener("pointerdown", (e) => {
-    dragging = true; moved = false; lastX = downX = e.clientX; downY = e.clientY;
-    canvas.classList.add("dragging");
-    if (e.pointerType !== "touch") canvas.setPointerCapture(e.pointerId);
-    wake();
-  });
-  canvas.addEventListener("pointerup", (e) => {
-    if (!dragging) return;
-    dragging = false; canvas.classList.remove("dragging");
-    if (moved) return;
-    const m = pick(e.clientX, e.clientY);
-    if (m) {
-      m.userData.pop = 1; wake();
-      if (e.pointerType === "touch") { showTip(m, e.clientX, e.clientY); setTimeout(() => { hideTip(); WN.openTrack(m.userData.t.rank); }, 500); }
-      else { hideTip(); WN.openTrack(m.userData.t.rank); }
-    } else if (e.pointerType === "touch") hideTip();
-  });
-  canvas.addEventListener("pointercancel", () => { dragging = false; canvas.classList.remove("dragging"); });
-
-  // loop
-  const clock = new THREE.Clock();
-  let running = false, visible = true, raf = 0, idleUntil = 0;
-  function frame() {
-    raf = 0;
-    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, p = window.WN_SCROLL || 0;
-    if (!WN.reduced) {
-      rotY += dt * 0.32 + spinV * 0.5; spinV *= 0.94;
-      crystals.forEach((m) => {
-        const u = m.userData;
-        m.rotation.x += u.spin.x * dt; m.rotation.y += u.spin.y * dt * (1 + u.hover * 4);
-        m.position.y = u.baseY + Math.sin(t * 0.7 + u.phase) * 0.18;
-        u.hover += ((m === hovered ? 1 : 0) - u.hover) * 0.15;
-        u.pop *= 0.9;
-        m.scale.setScalar(u.size * (1 + u.hover * 0.45 + u.pop * 0.6));
-        m.material.emissiveIntensity = 0.22 + u.hover * 0.7;
-      });
-      dust.rotation.y = t * 0.01;
-      pinkL.position.set(Math.cos(t * 0.5) * 6, 2.5, Math.sin(t * 0.5) * 6);
-      cyanL.position.set(Math.cos(t * 0.5 + Math.PI) * 6, -1.5, Math.sin(t * 0.5 + Math.PI) * 6);
-      ringGroup.rotation.z = t * 0.12;
-    } else {
-      spinV *= 0.8;
-      crystals.forEach((m) => { const u = m.userData; u.hover = m === hovered ? 1 : 0; m.scale.setScalar(u.size * (1 + u.hover * 0.45)); m.material.emissiveIntensity = 0.22 + u.hover * 0.7; });
-      pinkL.position.set(4, 2.5, 4); cyanL.position.set(-4, -1.5, -4);
-    }
-    gemPivot.rotation.y = rotY;
-    camX += (px * 0.9 - camX) * 0.06; camY += (-py * 0.6 - camY) * 0.06;
-    camera.position.set(camX, camY + p * 1.5, 12 + p * 9);
-    camera.lookAt(wide ? 1.0 : 0, (wide ? 0 : 1.2) + p * 2.5, 0);
-    world.rotation.y = p * 0.35;
-    renderer.render(scene, camera);
-    const keepGoing = !WN.reduced || Math.abs(spinV) > 0.0005 || performance.now() < idleUntil;
-    if (running && keepGoing) raf = requestAnimationFrame(frame);
-  }
-  function wake() { idleUntil = performance.now() + 900; if (running && !raf) raf = requestAnimationFrame(frame); }
-  function startLoop() { if (running) return; running = true; clock.getDelta(); raf = requestAnimationFrame(frame); }
-  function stopLoop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
-  window.addEventListener("resize", resize);
-  window.addEventListener("scroll", () => wake(), { passive: true });
-  new IntersectionObserver((en) => { visible = en[0].isIntersecting; if (visible && !document.hidden) startLoop(); else stopLoop(); }).observe(banner);
-  document.addEventListener("visibilitychange", () => { if (document.hidden) stopLoop(); else if (visible) startLoop(); });
-  startLoop();
-  resize();
-  requestAnimationFrame(() => canvas.classList.add("ready"));
-}
-
-function glowTexture() {
-  const c = document.createElement("canvas"); c.width = c.height = 64;
-  const g = c.getContext("2d"), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(0.3, "rgba(255,210,122,.6)"); gr.addColorStop(1, "rgba(255,210,122,0)");
-  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
-  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace; return tex;
-}
-</script>
+<script type="module" src="assets/trident.js"></script>
 </body>
 </html>
