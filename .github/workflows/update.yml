@@ -47,7 +47,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data.js certs.js
+          git add data.js certs.js albums.js 2>/dev/null || git add data.js certs.js
           if git diff --cached --quiet; then
             echo "Rien de nouveau."
           else

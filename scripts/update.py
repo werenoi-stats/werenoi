@@ -213,12 +213,84 @@ def update_certs(today, fetch=get):
     return new
 
 
+# ----------------------------------------------------------------- projects
+
+KWORB_ALBUMS = "https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_albums.html"
+ALBUM_ROW = re.compile(
+    r'<tr><td class="text"><div><a href="https://open\.spotify\.com/album/([A-Za-z0-9]+)"[^>]*>(.*?)</a></div></td>'
+    r"<td>([\d,]+)</td><td>([\d,]*)</td></tr>",
+    re.S,
+)
+
+
+def _slug(s):
+    import unicodedata
+    s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+
+
+def spotify_album(album_id, fetch=get):
+    page = fetch(f"https://open.spotify.com/embed/album/{album_id}")
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', page, re.S)
+    if not m:
+        raise RuntimeError(f"tracklist Spotify introuvable pour l'album {album_id}")
+    ent = json.loads(m[1])["props"]["pageProps"]["state"]["data"]["entity"]
+    tracks = [{
+        "i": (t.get("uri") or "").split(":")[-1],
+        "t": t.get("title", ""),
+        "a": t.get("subtitle", ""),
+        "ms": t.get("duration") or 0,
+    } for t in ent.get("trackList", [])]
+    return ent.get("subtitle", ""), tracks
+
+
+def update_albums(fetch=get):
+    page = fetch(KWORB_ALBUMS)
+    rows = [(aid, html.unescape(t).strip(), num(s), num(d)) for aid, t, s, d in ALBUM_ROW.findall(page)]
+    if not rows:
+        raise RuntimeError("page des albums kworb méconnaissable")
+    groups = {}
+    for aid, title, s, d in rows:
+        groups.setdefault(title, []).append((aid, s, d))
+    projects = []
+    for title, eds in groups.items():
+        eds.sort(key=lambda e: -e[1])
+        best_tracks, owner = [], ""
+        for aid, s, d in eds:
+            artist, tracks = spotify_album(aid, fetch)
+            owner = owner or artist
+            if len(tracks) > len(best_tracks):
+                best_tracks = tracks
+            time.sleep(0.4) if fetch is get else None
+        if not owner.lower().startswith("werenoi"):
+            continue  # projet d'un autre artiste où Werenoi est invité
+        projects.append({
+            "slug": _slug(title),
+            "t": title,
+            "spotify": eds[0][0],
+            "editions": len(eds),
+            "s": eds[0][1],
+            "d": eds[0][2],
+            "tracks": best_tracks,
+        })
+    if not projects:
+        raise RuntimeError("aucun projet de Werenoi trouvé")
+    projects.sort(key=lambda p: -p["s"])
+    write_js("albums.js", "WERENOI_ALBUMS", {"fetched": now_utc(), "source": KWORB_ALBUMS, "projects": projects})
+    print(f"Projets : {len(projects)} ({', '.join(p['t'] for p in projects)}).")
+    return projects
+
+
 def main():
     errors = []
     try:
         update_streams()
     except Exception as e:  # noqa: BLE001
         errors.append(f"Streams : {e}")
+    try:
+        update_albums()
+    except Exception as e:  # noqa: BLE001
+        errors.append(f"Projets : {e}")
     today = dt.datetime.now(PARIS)
     if today.weekday() == 0 or os.environ.get("FORCE_SNEP") == "1":
         try:
