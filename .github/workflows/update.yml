@@ -1,0 +1,71 @@
+name: Mise à jour du site
+
+on:
+  schedule:
+    - cron: "41 19 * * *" # 20 h 41 à Paris en hiver, 21 h 41 en été
+  workflow_dispatch:
+    inputs:
+      snep:
+        description: "Vérifier aussi les certifications SNEP"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: site
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Récupérer streams et certifications
+        id: update
+        if: github.event_name != 'push'
+        continue-on-error: true
+        env:
+          FORCE_SNEP: ${{ inputs.snep && '1' || '0' }}
+        run: python scripts/update.py
+
+      - name: Enregistrer les nouvelles données
+        if: github.event_name != 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.js certs.js
+          if git diff --cached --quiet; then
+            echo "Rien de nouveau."
+          else
+            git commit -m "Données du $(date -u +%F)"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Signaler une collecte en échec
+        if: steps.update.outcome == 'failure'
+        run: |
+          echo "La collecte a échoué : le site garde les dernières données valides. Voir l'étape « Récupérer streams et certifications »."
+          exit 1

@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Werenoi, streams Spotify</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: masthead, 4 summary tiles, "today" + trend side by side, then the full catalogue as ranked rows with gold bars. One dark world: diamant noir + chemin d'or. */
+:root {
+  --ink: #0e0d0c;
+  --panel: #171513;
+  --line: #2b2723;
+  --text: #efe9df;
+  --muted: #9a9187;
+  --gold: #d6a84e;
+  --gold-soft: rgba(214, 168, 78, 0.14);
+  --up: #6cc08a;
+  --down: #e2705f;
+  --platine: #c9cdd4;
+  --diamant: #8fd0ec;
+  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--ink);
+  color: var(--text);
+  font: 400 15px/1.5 var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 56px; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Masthead */
+.mast { padding: 40px 0 28px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.kicker { margin: 0; color: var(--gold); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+.mast h1 { margin: 0; font: 800 clamp(64px, 14vw, 132px)/.86 var(--display); letter-spacing: .01em; text-wrap: balance; }
+.mast-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; }
+.mast-meta strong { color: var(--text); font-weight: 500; }
+
+/* Tiles */
+.tiles { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, .8fr) minmax(0, 1.1fr); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+.tile { background: var(--ink); padding: 22px 18px 20px 0; display: grid; gap: 4px; align-content: start; }
+.tile + .tile { padding-left: 18px; }
+.tile h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.tile .big { font: 800 clamp(28px, 3.9vw, 44px)/1 var(--display); letter-spacing: .01em; white-space: nowrap; }
+.tile .big.gold { color: var(--gold); }
+.tile p { margin: 0; color: var(--muted); font-size: 13px; }
+
+/* Two panels */
+.duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; padding: 30px 0; border-bottom: 1px solid var(--line); }
+.sec-h { margin: 0 0 4px; font: 600 26px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; text-wrap: balance; }
+.sec-sub { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
+.hot { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.hot li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.hot .pos { font: 800 22px/1 var(--display); color: var(--gold); }
+.hot .nm { font-weight: 500; overflow-wrap: anywhere; }
+.hot .bar { grid-column: 2 / 4; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: -6px; }
+.hot .bar i { display: block; height: 100%; background: var(--gold); }
+.hot .val { color: var(--text); font-size: 14px; }
+
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart .ax { fill: var(--muted); font: 400 11px var(--body); }
+.chart .lbl { fill: var(--text); font: 600 12px var(--body); }
+.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .12s; }
+.tip.on { opacity: 1; }
+.note { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+
+/* Catalogue */
+.cat { padding-top: 30px; }
+.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 16px; }
+.controls input[type="search"] {
+  flex: 1 1 220px; min-width: 0; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit;
+}
+.controls input::placeholder { color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button {
+  background: transparent; color: var(--muted); border: 0; padding: 9px 13px; font: 500 14px var(--body); cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--gold-soft); color: var(--gold); }
+.seg button:hover { color: var(--text); }
+select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+  padding: 9px 10px; font: 500 14px var(--body); cursor: pointer;
+}
+.count { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+.list { list-style: none; margin: 0; padding: 0; }
+.row, .head {
+  display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) 8.6rem 6.6rem 9.4rem;
+  gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line);
+}
+.head { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 8px 0; }
+.head .r, .row .r { text-align: right; }
+.rk { font: 800 20px/1 var(--display); color: var(--muted); display: flex; align-items: baseline; gap: 5px; }
+.row:nth-child(-n+3) .rk { color: var(--gold); }
+.mv { font: 600 10px var(--body); }
+.mv.up { color: var(--up); } .mv.down { color: var(--down); } .mv.eq { color: var(--muted); }
+.ti { min-width: 0; display: grid; gap: 6px; }
+.ti-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.ti a { font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
+.ti a:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.chip { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.chip.new { border-color: var(--gold); color: var(--gold); }
+.track { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.track i { display: block; height: 100%; background: var(--gold); opacity: .85; }
+.row .tot { font-weight: 600; }
+.row .day { color: var(--up); }
+.row .ms { color: var(--muted); font-size: 13px; }
+.row .ms b { color: var(--text); font-weight: 500; }
+.empty { padding: 28px 0; color: var(--muted); }
+
+/* Nav */
+.jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.jump a { text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+.jump a:hover { color: var(--gold); border-color: var(--gold); }
+
+/* Certifications */
+.certs { padding: 30px 0; border-bottom: 1px solid var(--line); }
+.sub-h { margin: 26px 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.medal { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px 3px 7px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
+.medal::before { content: ""; width: 7px; height: 7px; background: currentColor; transform: rotate(45deg); }
+.m-or { color: var(--gold); }
+.m-platine { color: var(--platine); }
+.m-diamant { color: var(--diamant); }
+.tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.tally > div { background: var(--panel); padding: 14px 16px; display: grid; gap: 2px; }
+.tally .k { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.tally .v { font: 800 38px/1 var(--display); color: var(--text); }
+.tally p { margin: 0; color: var(--muted); font-size: 12px; }
+.albums { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+.albums li { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; background: var(--panel); }
+.albums .al-t { font: 800 26px/1 var(--display); letter-spacing: .01em; }
+.albums p { margin: 0; color: var(--muted); font-size: 12px; }
+.recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.recent li { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
+.recent li.d-diamant { border-left-color: var(--diamant); }
+.recent li.d-platine { border-left-color: var(--platine); }
+.recent li.d-or { border-left-color: var(--gold); }
+.recent .when { font-size: 12px; color: var(--muted); }
+.recent .ct { font-weight: 600; overflow-wrap: anywhere; }
+.recent .ca { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.crow, .chead { display: grid; grid-template-columns: 7.2rem 8.4rem minmax(0, 1fr) 5rem 9rem; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.chead { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 8px 0; }
+.crow .cd { font-size: 14px; }
+.crow .cti { min-width: 0; display: grid; gap: 2px; }
+.crow .cti b { font-weight: 500; overflow-wrap: anywhere; }
+.crow .cti span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.crow .ccat, .crow .crel { font-size: 13px; color: var(--muted); }
+.clist { list-style: none; margin: 0; padding: 0; }
+.more { margin-top: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font: 500 14px var(--body); cursor: pointer; }
+.more:hover { border-color: var(--gold); color: var(--gold); }
+.ti .medal { font-size: 10px; padding: 1px 6px 1px 5px; }
+
+footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; display: grid; gap: 6px; max-width: 70ch; }
+footer p { margin: 0; }
+
+@media (max-width: 860px) {
+  .tiles { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
+  .tile:nth-child(3) { padding-left: 0; }
+  .duo { grid-template-columns: minmax(0, 1fr); }
+  .row, .head { grid-template-columns: 3rem minmax(0, 1fr) 8rem 6rem; }
+  .row .ms, .head .ms { display: none; }
+}
+@media (max-width: 860px) {
+  .tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crow, .chead { grid-template-columns: 6.4rem 7.6rem minmax(0, 1fr); }
+  .crow .ccat, .crow .crel, .chead .ccat, .chead .crel { display: none; }
+}
+@media (max-width: 520px) {
+  .crow, .chead { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .chead { display: none; }
+  .crow .cd { grid-column: 1; font-size: 12px; color: var(--muted); }
+  .crow .cm { grid-column: 2; grid-row: 1; }
+  .crow .cti { grid-column: 1 / 3; }
+}
+@media (max-width: 520px) {
+  .wrap { padding: 0 16px 48px; }
+  .row, .head { grid-template-columns: 2.4rem minmax(0, 1fr) auto; gap: 10px; }
+  .head .day { display: none; }
+  .row .nums { display: grid; justify-items: end; gap: 1px; }
+  .row .day { font-size: 12px; }
+  .count { margin-left: 0; width: 100%; }
+}
+@media (min-width: 521px) { .row .nums { display: contents; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="mast">
+    <p class="kicker">Streams Spotify, titre par titre</p>
+    <h1>Werenoi</h1>
+    <div class="mast-meta">
+      <span>Données du <strong id="upd">…</strong></span>
+      <span>Mise à jour automatique chaque jour</span>
+      <span>En mémoire, 17 mai 2025</span>
+    </div>
+    <nav class="jump" aria-label="Rubriques">
+      <a href="#certifications">Certifications SNEP</a>
+      <a href="#catalogue">Tous les titres</a>
+    </nav>
+  </header>
+
+  <section class="tiles" id="resume" aria-label="Résumé">
+    <div class="tile"><h2>Streams cumulés</h2><span class="big gold num" id="t-total">…</span><p id="t-total-sub"></p></div>
+    <div class="tile"><h2>Écoutes en 24 h</h2><span class="big num" id="t-daily">…</span><p>tous titres confondus</p></div>
+    <div class="tile"><h2>Titres suivis</h2><span class="big num" id="t-count">…</span><p id="t-count-sub"></p></div>
+    <div class="tile"><h2 id="t-next-h">Prochain milliard</h2><span class="big num" id="t-next">…</span><p id="t-next-sub"></p></div>
+  </section>
+
+  <div class="duo">
+    <section id="aujourdhui">
+      <h2 class="sec-h">Les plus écoutés en 24 h</h2>
+      <p class="sec-sub">Streams gagnés depuis le relevé précédent</p>
+      <ol class="hot" id="hot"></ol>
+    </section>
+    <section id="evolution">
+      <h2 class="sec-h">Streams cumulés, relevé après relevé</h2>
+      <p class="sec-sub" id="hist-sub"></p>
+      <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+      <p class="note">La courbe s'allonge d'un point à chaque mise à jour quotidienne.</p>
+    </section>
+  </div>
+
+  <section class="certs" id="certifications">
+    <h2 class="sec-h">Certifications SNEP</h2>
+    <p class="sec-sub" id="c-sub"></p>
+    <div class="tally" id="tally"></div>
+
+    <h3 class="sub-h">Albums</h3>
+    <ul class="albums" id="albums"></ul>
+
+    <h3 class="sub-h">Les plus récentes</h3>
+    <ol class="recent" id="recent"></ol>
+
+    <h3 class="sub-h">Toutes les certifications</h3>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Catégorie">
+        <button type="button" id="cc-all" data-cc="all" aria-pressed="true">Tout</button>
+        <button type="button" id="cc-singles" data-cc="Singles" aria-pressed="false">Singles</button>
+        <button type="button" id="cc-albums" data-cc="Albums" aria-pressed="false">Albums</button>
+      </div>
+      <div class="seg" role="group" aria-label="Niveau">
+        <button type="button" id="cl-all" data-cl="all" aria-pressed="true">Tous niveaux</button>
+        <button type="button" id="cl-diamant" data-cl="diamant" aria-pressed="false">Diamant</button>
+        <button type="button" id="cl-platine" data-cl="platine" aria-pressed="false">Platine</button>
+        <button type="button" id="cl-or" data-cl="or" aria-pressed="false">Or</button>
+      </div>
+      <span class="count" id="c-count"></span>
+    </div>
+    <div class="chead" aria-hidden="true"><span>Constat</span><span>Niveau</span><span>Titre</span><span class="ccat">Type</span><span class="crel">Sorti le</span></div>
+    <ol class="clist" id="clist"></ol>
+    <button type="button" class="more" id="c-more" hidden></button>
+  </section>
+
+  <section class="cat" id="catalogue">
+    <h2 class="sec-h">Tous les titres</h2>
+    <div class="controls">
+      <label class="sr" for="q" style="position:absolute;left:-9999px">Rechercher un titre</label>
+      <input id="q" type="search" placeholder="Rechercher un titre…" autocomplete="off">
+      <div class="seg" role="group" aria-label="Filtrer">
+        <button type="button" id="f-all" data-f="all" aria-pressed="true">Tous</button>
+        <button type="button" id="f-lead" data-f="lead" aria-pressed="false">En solo / lead</button>
+        <button type="button" id="f-feat" data-f="feat" aria-pressed="false">En featuring</button>
+      </div>
+      <label for="sort" style="position:absolute;left:-9999px">Trier par</label>
+      <select id="sort">
+        <option value="s">Trier : streams cumulés</option>
+        <option value="d">Trier : écoutes en 24 h</option>
+        <option value="t">Trier : titre A → Z</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="head" aria-hidden="true">
+      <span>#</span><span>Titre</span><span class="r">Streams</span><span class="r day">24 h</span><span class="r ms">Prochain palier</span>
+    </div>
+    <ol class="list" id="list"></ol>
+    <p class="empty" id="empty" hidden></p>
+  </section>
+
+  <footer>
+    <p>Chiffres relevés sur <a href="https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_songs.html" target="_blank" rel="noopener">kworb.net</a>, qui recopie chaque jour les compteurs d'écoutes publics de Spotify. « 24 h » correspond aux streams gagnés entre les deux derniers relevés.</p>
+    <p>Certifications : base officielle du <a href="https://snepmusique.com/les-certifications/?interprete=werenoi" target="_blank" rel="noopener">SNEP</a>, vérifiée chaque lundi, jour où le SNEP publie ses nouvelles certifications. Le SNEP certifie un single Or à 15 millions d'équivalents streams, Platine à 30 millions et Diamant à 50 millions ; un album Or à 50 000 ventes, Platine à 100 000 et Diamant à 500 000.</p>
+    <p>Les titres « feat. » sont ceux où Werenoi est invité sur le morceau d'un autre artiste. Le prochain palier est estimé au rythme d'écoute actuel. Un clic sur un titre ouvre le morceau sur Spotify.</p>
+    <p id="fetched"></p>
+  </footer>
+</div>
+
+<script src="data.js"></script>
+<script src="certs.js"></script>
+<script>
+(function () {
+  "use strict";
+  var D = window.WERENOI_DATA;
+  var $ = function (id) { return document.getElementById(id); };
+  if (!D || !D.tracks) {
+    $("upd").textContent = "indisponible";
+    $("empty").hidden = false;
+    $("empty").textContent = "Les données n'ont pas pu être chargées. Rechargez la page dans un instant.";
+    return;
+  }
+
+  var nf = new Intl.NumberFormat("fr-FR");
+  var fmt = function (n) { return nf.format(n); };
+  function compact(n) {
+    var o = { maximumFractionDigits: 2 };
+    if (n >= 1e9) return (n / 1e9).toLocaleString("fr-FR", o) + " Md";
+    if (n >= 1e6) return (n / 1e6).toLocaleString("fr-FR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 }) + " M";
+    if (n >= 1e3) return Math.round(n / 1e3) + " k";
+    return String(n);
+  }
+  function asDate(iso) { return new Date(iso + "T12:00:00Z"); }
+  function longDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).replace(/^1 /, "1er "); }
+  function shortDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" }); }
+  function nextStep(s) {
+    var step = s < 1e6 ? 1e5 : s < 1e7 ? 1e6 : s < 1e8 ? 1e7 : s < 1e9 ? 5e7 : 1e9;
+    return (Math.floor(s / step) + 1) * step;
+  }
+  function inDays(gap, perDay) { return perDay > 0 ? Math.ceil(gap / perDay) : Infinity; }
+  function daysLabel(n) {
+    if (!isFinite(n)) return "—";
+    if (n > 3650) return "plus de 10 ans";
+    if (n > 730) return Math.round(n / 365) + " ans";
+    return n + (n > 1 ? " jours" : " jour");
+  }
+
+  var T = D.totals, tracks = D.tracks.slice();
+  tracks.sort(function (a, b) { return b.s - a.s; });
+  tracks.forEach(function (t, i) { t.rank = i + 1; });
+  var maxS = tracks[0].s, maxD = Math.max.apply(null, tracks.map(function (t) { return t.d; }));
+
+  // Header + tiles
+  $("upd").textContent = longDate(asDate(D.updated));
+  $("t-total").textContent = fmt(T.s);
+  $("t-total-sub").textContent = "dont " + compact(T.feat) + " en featuring";
+  $("t-daily").textContent = fmt(T.d);
+  $("t-count").textContent = fmt(T.n);
+  $("t-count-sub").textContent = (T.n - T.nfeat) + " en solo ou lead, " + T.nfeat + " en featuring";
+  var goal = (Math.floor(T.s / 1e9) + 1) * 1e9, gd = inDays(goal - T.s, T.d);
+  $("t-next-h").textContent = "Cap des " + (goal / 1e9) + " milliards";
+  $("t-next").textContent = isFinite(gd) ? daysLabel(gd) : "—";
+  if (isFinite(gd)) {
+    var eta = asDate(D.updated); eta.setUTCDate(eta.getUTCDate() + gd);
+    $("t-next-sub").textContent = "estimé vers le " + longDate(eta) + " au rythme actuel";
+  }
+  if (D.fetched) {
+    var f = new Date(D.fetched);
+    $("fetched").textContent = "Dernière collecte : " + f.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" }) + " (heure de Paris).";
+  }
+
+  // Hot list
+  var hot = tracks.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 6);
+  hot.forEach(function (t, i) {
+    var li = document.createElement("li");
+    var pos = document.createElement("span"); pos.className = "pos"; pos.textContent = i + 1;
+    var nm = document.createElement("span"); nm.className = "nm"; nm.textContent = t.t + (t.f ? " (feat.)" : "");
+    var val = document.createElement("span"); val.className = "val num"; val.textContent = "+" + fmt(t.d);
+    var bar = document.createElement("span"); bar.className = "bar";
+    var fill = document.createElement("i"); fill.style.width = (t.d / maxD * 100).toFixed(1) + "%";
+    bar.appendChild(fill);
+    li.append(pos, nm, val, bar);
+    $("hot").appendChild(li);
+  });
+
+  // History chart
+  var H = (D.history || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  $("hist-sub").textContent = H.length + (H.length > 1 ? " relevés" : " relevé") + (H.length ? ", depuis le " + longDate(asDate(H[0].date)) : "");
+  var NS = "http://www.w3.org/2000/svg";
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function drawChart() {
+    var box = $("chart"), old = box.querySelector("svg");
+    if (old) old.remove();
+    if (!H.length) return;
+    var W = Math.max(260, box.clientWidth), Ht = 190, pl = 8, pr = 8, pt = 30, pb = 26;
+    var svg = el("svg", { viewBox: "0 0 " + W + " " + Ht, role: "img", "aria-label": "Streams cumulés de Werenoi à chaque relevé" });
+    var t0 = asDate(H[0].date).getTime(), t1 = asDate(H[H.length - 1].date).getTime();
+    var vals = H.map(function (h) { return h.s; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var pad = Math.max((hi - lo) * 0.15, hi * 0.0005); lo -= pad; hi += pad;
+    var x = function (d) { return t1 === t0 ? W / 2 : pl + (asDate(d).getTime() - t0) / (t1 - t0) * (W - pl - pr); };
+    var y = function (v) { return pt + (1 - (v - lo) / (hi - lo)) * (Ht - pt - pb); };
+    for (var g = 0; g <= 3; g++) {
+      var gy = pt + g * (Ht - pt - pb) / 3;
+      el("line", { x1: pl, x2: W - pr, y1: gy, y2: gy, stroke: "var(--line)", "stroke-width": 1 }, svg);
+    }
+    if (H.length > 1) {
+      var dLine = H.map(function (h, i) { return (i ? "L" : "M") + x(h.date).toFixed(1) + " " + y(h.s).toFixed(1); }).join(" ");
+      el("path", { d: dLine + " L" + x(H[H.length - 1].date).toFixed(1) + " " + (Ht - pb) + " L" + x(H[0].date).toFixed(1) + " " + (Ht - pb) + " Z", fill: "var(--gold-soft)" }, svg);
+      el("path", { d: dLine, fill: "none", stroke: "var(--gold)", "stroke-width": 2.2, "stroke-linejoin": "round" }, svg);
+    }
+    var tip = $("tip");
+    H.forEach(function (h, i) {
+      var last = i === H.length - 1;
+      var c = el("circle", { cx: x(h.date), cy: y(h.s), r: last ? 5 : 3.5, fill: last ? "var(--gold)" : "var(--ink)", stroke: "var(--gold)", "stroke-width": 2, tabindex: 0 }, svg);
+      var hit = el("circle", { cx: x(h.date), cy: y(h.s), r: 14, fill: "transparent" }, svg);
+      var show = function () {
+        tip.textContent = shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams";
+        tip.style.left = Math.min(Math.max(x(h.date) / W * box.clientWidth, 80), box.clientWidth - 80) + "px";
+        tip.style.top = (y(h.s) / Ht * box.clientWidth * (Ht / W)) + "px";
+        tip.classList.add("on");
+      };
+      var hide = function () { tip.classList.remove("on"); };
+      [c, hit].forEach(function (n) {
+        n.addEventListener("mouseenter", show); n.addEventListener("mouseleave", hide);
+        n.addEventListener("focus", show); n.addEventListener("blur", hide);
+        n.addEventListener("touchstart", show, { passive: true });
+      });
+    });
+    var first = H[0], lastH = H[H.length - 1];
+    var lab = el("text", { x: x(lastH.date), y: y(lastH.s) - 12, "text-anchor": H.length > 1 ? "end" : "middle", class: "lbl" }, svg);
+    lab.textContent = compact(lastH.s);
+    if (H.length > 1) {
+      var lab0 = el("text", { x: x(first.date), y: y(first.s) - 12, "text-anchor": "start", class: "ax" }, svg);
+      lab0.textContent = compact(first.s);
+    }
+    var a0 = el("text", { x: pl, y: Ht - 6, "text-anchor": "start", class: "ax" }, svg); a0.textContent = shortDate(asDate(first.date));
+    if (H.length > 1) { var a1 = el("text", { x: W - pr, y: Ht - 6, "text-anchor": "end", class: "ax" }, svg); a1.textContent = shortDate(asDate(lastH.date)); }
+    box.insertBefore(svg, tip);
+  }
+  drawChart();
+  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(drawChart, 120); });
+
+  // Certifications (SNEP)
+  var C = window.WERENOI_CERTS;
+  var LV = { "Or": 1, "Double Or": 2, "Platine": 3, "Double Platine": 4, "Triple Platine": 5, "Diamant": 6, "Double Diamant": 7, "Triple Diamant": 8, "Quadruple Diamant": 9 };
+  var ALB = { carre: "Carré", telegram: "Telegram", telegram2: "Telegram 2", pyramide: "Pyramide", pyramide2: "Pyramide 2", diamantnoir: "Diamant Noir" };
+  function family(n) { return /diamant/i.test(n) ? "diamant" : /platine/i.test(n) ? "platine" : "or"; }
+  function medalLabel(n) {
+    var m = n.match(/^(Double|Triple|Quadruple) (.+)$/);
+    return m ? m[2] + " ×" + { Double: 2, Triple: 3, Quadruple: 4 }[m[1]] : n;
+  }
+  function medal(n) { var s = document.createElement("span"); s.className = "medal m-" + family(n); s.textContent = medalLabel(n); return s; }
+  function tkey(s) { return norm(s.split(" - ")[0]).replace(/[^a-z0-9]/g, ""); }
+  var byKey = {};
+  tracks.forEach(function (t) { var k = tkey(t.t); if (!byKey[k]) byKey[k] = t; });
+  function niceTitle(c) {
+    var k = tkey(c.t);
+    if (c.c === "Albums" && ALB[k]) return ALB[k];
+    if (c.c !== "Albums" && byKey[k]) return byKey[k].t.split(" - ")[0];
+    return c.t.charAt(0) + c.t.slice(1).toLowerCase();
+  }
+  function took(r, d) {
+    if (!r || !d) return "";
+    var a = asDate(r), b = asDate(d);
+    var m = (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + b.getUTCMonth() - a.getUTCMonth() - (b.getUTCDate() < a.getUTCDate() ? 1 : 0);
+    if (m < 1) return "moins d'un mois";
+    var y = Math.floor(m / 12), mm = m % 12;
+    return (y ? y + (y > 1 ? " ans" : " an") : "") + (y && mm ? " " : "") + (mm ? mm + " mois" : "");
+  }
+  function isNew(c) {
+    if (!c.seen || !C.checked) return false;
+    return (asDate(C.checked) - asDate(c.seen)) / 864e5 <= 7;
+  }
+  function newChip() { var s = document.createElement("span"); s.className = "chip new"; s.textContent = "nouveau"; return s; }
+  var bestSingle = {};
+  var cstate = { cc: "all", cl: "all", all: false };
+
+  if (!C || !C.certs || !C.certs.length) {
+    $("c-sub").textContent = "Les certifications n'ont pas pu être chargées. Rechargez la page dans un instant.";
+  } else {
+    var certs = C.certs.slice().sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
+    certs.forEach(function (c) {
+      if (c.c !== "Singles") return;
+      var k = tkey(c.t), cur = bestSingle[k];
+      if (!cur || (LV[c.n] || 0) > (LV[cur.n] || 0)) bestSingle[k] = c;
+    });
+    $("c-sub").textContent = certs.length + " certifications, la plus récente le " + longDate(asDate(certs[0].d)) +
+      ". Base SNEP vérifiée le " + longDate(asDate(C.checked)) + ".";
+
+    // Tally
+    var fams = [["diamant", "Diamant"], ["platine", "Platine"], ["or", "Or"]];
+    fams.forEach(function (f) {
+      var list = certs.filter(function (c) { return family(c.n) === f[0]; });
+      var s = list.filter(function (c) { return c.c === "Singles"; }).length, al = list.length - s;
+      var box = document.createElement("div");
+      var k = document.createElement("span"); k.className = "k m-" + f[0]; k.textContent = f[1];
+      var v = document.createElement("span"); v.className = "v num"; v.textContent = list.length;
+      var p = document.createElement("p"); p.textContent = s + " single" + (s > 1 ? "s" : "") + (al ? ", " + al + " album" + (al > 1 ? "s" : "") : "");
+      box.append(k, v, p); $("tally").appendChild(box);
+    });
+    var totBox = document.createElement("div");
+    var tk = document.createElement("span"); tk.className = "k"; tk.style.color = "var(--muted)"; tk.textContent = "Au total";
+    var tv = document.createElement("span"); tv.className = "v num"; tv.textContent = certs.length;
+    var nTitles = Object.keys(certs.reduce(function (o, c) { o[c.c + tkey(c.t)] = 1; return o; }, {})).length;
+    var tp = document.createElement("p"); tp.textContent = "sur " + nTitles + " titres et albums";
+    totBox.append(tk, tv, tp); $("tally").appendChild(totBox);
+
+    // Albums
+    var albums = {};
+    certs.filter(function (c) { return c.c === "Albums"; }).forEach(function (c) {
+      var k = tkey(c.t); (albums[k] = albums[k] || []).push(c);
+    });
+    Object.keys(albums).map(function (k) {
+      var list = albums[k].sort(function (a, b) { return (LV[b.n] || 0) - (LV[a.n] || 0); });
+      return list;
+    }).sort(function (a, b) { return a[0].r < b[0].r ? -1 : 1; }).forEach(function (list) {
+      var top = list[0], li = document.createElement("li");
+      var t = document.createElement("span"); t.className = "al-t"; t.textContent = niceTitle(top);
+      var m = document.createElement("div"); m.appendChild(medal(top.n)); if (isNew(top)) m.appendChild(newChip());
+      var p1 = document.createElement("p"); p1.textContent = medalLabel(top.n) + " le " + longDate(asDate(top.d));
+      var p2 = document.createElement("p"); p2.textContent = "Sorti le " + longDate(asDate(top.r));
+      li.append(t, m, p1);
+      list.slice(1).forEach(function (c) { var p = document.createElement("p"); p.textContent = medalLabel(c.n) + " le " + longDate(asDate(c.d)); li.appendChild(p); });
+      li.appendChild(p2);
+      $("albums").appendChild(li);
+    });
+
+    // Most recent
+    certs.slice(0, 4).forEach(function (c) {
+      var li = document.createElement("li"); li.className = "d-" + family(c.n);
+      var w = document.createElement("span"); w.className = "when"; w.textContent = longDate(asDate(c.d)) + (c.c === "Albums" ? " · album" : "");
+      var mm = document.createElement("div"); mm.appendChild(medal(c.n)); if (isNew(c)) mm.appendChild(newChip());
+      var ct = document.createElement("span"); ct.className = "ct"; ct.textContent = niceTitle(c);
+      var ca = document.createElement("span"); ca.className = "ca"; ca.textContent = c.a;
+      li.append(w, mm, ct, ca); $("recent").appendChild(li);
+    });
+
+    // Full list
+    var renderCerts = function () {
+      var rows = certs.filter(function (c) {
+        if (cstate.cc !== "all" && c.c !== cstate.cc) return false;
+        if (cstate.cl !== "all" && family(c.n) !== cstate.cl) return false;
+        return true;
+      });
+      var ol = $("clist"); ol.textContent = "";
+      var LIMIT = 12, shown = cstate.all ? rows : rows.slice(0, LIMIT), more = $("c-more");
+      more.hidden = rows.length <= LIMIT;
+      more.textContent = cstate.all ? "Réduire la liste" : "Afficher les " + (rows.length - LIMIT) + " autres certifications";
+      more.setAttribute("aria-expanded", String(cstate.all));
+      shown.forEach(function (c) {
+        var li = document.createElement("li"); li.className = "crow";
+        var d = document.createElement("span"); d.className = "cd num"; d.textContent = asDate(c.d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
+        var m = document.createElement("span"); m.className = "cm"; m.appendChild(medal(c.n));
+        var ti = document.createElement("div"); ti.className = "cti";
+        var b = document.createElement("b"); b.textContent = niceTitle(c);
+        if (isNew(c)) { b.append(" "); b.appendChild(newChip()); }
+        var a = document.createElement("span"); a.textContent = c.a + (took(c.r, c.d) ? " · obtenu en " + took(c.r, c.d) : "");
+        ti.append(b, a);
+        var cat = document.createElement("span"); cat.className = "ccat"; cat.textContent = c.c === "Albums" ? "Album" : "Single";
+        var rel = document.createElement("span"); rel.className = "crel num"; rel.textContent = c.r ? asDate(c.r).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
+        li.append(d, m, ti, cat, rel); ol.appendChild(li);
+      });
+      $("c-count").textContent = rows.length + (rows.length > 1 ? " certifications" : " certification");
+      document.querySelectorAll("[data-cc]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cc === cstate.cc)); });
+      document.querySelectorAll("[data-cl]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cl === cstate.cl)); });
+    };
+    document.querySelectorAll("[data-cc]").forEach(function (bt) { bt.addEventListener("click", function () { cstate.cc = bt.dataset.cc; renderCerts(); }); });
+    document.querySelectorAll("[data-cl]").forEach(function (bt) { bt.addEventListener("click", function () { cstate.cl = bt.dataset.cl; renderCerts(); }); });
+    $("c-more").addEventListener("click", function () { cstate.all = !cstate.all; renderCerts(); if (!cstate.all) $("clist").scrollIntoView({ block: "start" }); });
+    renderCerts();
+  }
+
+  // Catalogue
+  var state = { q: "", f: "all", sort: "s" };
+  try { var saved = JSON.parse(localStorage.getItem("werenoi-view") || "null"); if (saved) { state.f = saved.f || "all"; state.sort = saved.sort || "s"; } } catch (e) {}
+  function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function render() {
+    var q = norm(state.q.trim());
+    var rows = tracks.filter(function (t) {
+      if (state.f === "lead" && t.f) return false;
+      if (state.f === "feat" && !t.f) return false;
+      return !q || norm(t.t).indexOf(q) !== -1;
+    });
+    rows.sort(function (a, b) {
+      if (state.sort === "d") return b.d - a.d;
+      if (state.sort === "t") return a.t.localeCompare(b.t, "fr", { sensitivity: "base", numeric: true });
+      return b.s - a.s;
+    });
+    var list = $("list"); list.textContent = "";
+    rows.forEach(function (t) {
+      var li = document.createElement("li"); li.className = "row";
+      var rk = document.createElement("span"); rk.className = "rk"; rk.textContent = t.rank;
+      rk.title = "Rang au cumul de streams";
+      if (typeof t.p === "number") {
+        var mv = document.createElement("span"), diff = t.p - t.rank;
+        mv.className = "mv " + (diff > 0 ? "up" : diff < 0 ? "down" : "eq");
+        mv.textContent = diff > 0 ? "▲" + diff : diff < 0 ? "▼" + (-diff) : "=";
+        mv.title = diff === 0 ? "Même rang qu'au relevé précédent" : (diff > 0 ? "Gagne " : "Perd ") + Math.abs(diff) + " place(s) depuis le relevé précédent";
+        rk.appendChild(mv);
+      }
+      var ti = document.createElement("div"); ti.className = "ti";
+      var line = document.createElement("div"); line.className = "ti-line";
+      var a = document.createElement("a");
+      a.href = t.i ? "https://open.spotify.com/track/" + encodeURIComponent(t.i) : "https://open.spotify.com/search/" + encodeURIComponent(t.t + " Werenoi");
+      a.target = "_blank"; a.rel = "noopener"; a.textContent = t.t;
+      line.appendChild(a);
+      if (t.f) { var c = document.createElement("span"); c.className = "chip"; c.textContent = "feat."; line.appendChild(c); }
+      var bc = bestSingle[tkey(t.t)];
+      if (bc) { var md = medal(bc.n); md.title = "Certifié " + medalLabel(bc.n) + " par le SNEP le " + longDate(asDate(bc.d)); line.appendChild(md); }
+      if (t.n) { var c2 = document.createElement("span"); c2.className = "chip new"; c2.textContent = "nouveau"; line.appendChild(c2); }
+      var tr = document.createElement("div"); tr.className = "track";
+      var fi = document.createElement("i"); fi.style.width = Math.max(0.6, t.s / maxS * 100).toFixed(1) + "%";
+      tr.appendChild(fi); ti.append(line, tr);
+      var nums = document.createElement("div"); nums.className = "nums";
+      var tot = document.createElement("span"); tot.className = "num tot r"; tot.textContent = fmt(t.s);
+      var day = document.createElement("span"); day.className = "num day r"; day.textContent = "+" + fmt(t.d);
+      nums.append(tot, day);
+      var ms = document.createElement("span"); ms.className = "ms r";
+      var step = nextStep(t.s), b = document.createElement("b");
+      b.textContent = compact(step);
+      ms.append(b, document.createTextNode(" dans " + daysLabel(inDays(step - t.s, t.d))));
+      li.append(rk, ti, nums, ms);
+      list.appendChild(li);
+    });
+    $("count").textContent = rows.length + (rows.length > 1 ? " titres" : " titre");
+    var empty = $("empty");
+    empty.hidden = rows.length > 0;
+    if (!rows.length) empty.textContent = "Aucun titre ne correspond à « " + state.q.trim() + " ».";
+    document.querySelectorAll(".seg button").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.f === state.f)); });
+    $("sort").value = state.sort;
+    try { localStorage.setItem("werenoi-view", JSON.stringify({ f: state.f, sort: state.sort })); } catch (e) {}
+  }
+  $("q").addEventListener("input", function (e) { state.q = e.target.value; render(); });
+  document.querySelectorAll(".seg button").forEach(function (bt) {
+    bt.addEventListener("click", function () { state.f = bt.dataset.f; render(); });
+  });
+  $("sort").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
+  render();
+})();
+</script>
+</body>
+</html>
