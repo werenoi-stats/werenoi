@@ -844,7 +844,7 @@ footer p { margin: 0; max-width: 78ch; }
     if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) best = "titres";
     tabs.forEach(function (a) {
       var on = a.dataset.sec === best;
-      if (on && a.getAttribute("aria-current") !== "true") { var nav = a.parentNode; nav.scrollTo({ left: Math.max(0, a.offsetLeft - 16), behavior: REDUCED ? "auto" : "smooth" }); }
+      if (on && a.getAttribute("aria-current") !== "true") { var nav = a.parentNode; var left = a.getBoundingClientRect().left - nav.getBoundingClientRect().left + nav.scrollLeft - 8; nav.scrollTo({ left: Math.max(0, left), behavior: REDUCED ? "auto" : "smooth" }); }
       a.setAttribute("aria-current", String(on));
     });
   }
