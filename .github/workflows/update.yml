@@ -36,14 +36,14 @@ jobs:
 
       - name: Récupérer streams et certifications
         id: update
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || contains(github.event.head_commit.message, '[collecte]')
         continue-on-error: true
         env:
           FORCE_SNEP: ${{ inputs.snep && '1' || '0' }}
         run: python scripts/update.py
 
       - name: Enregistrer les nouvelles données
-        if: github.event_name != 'push'
+        if: github.event_name != 'push' || contains(github.event.head_commit.message, '[collecte]')
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
