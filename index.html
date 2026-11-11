@@ -947,8 +947,8 @@ function start() {
     wide = W >= 900;
     camera.fov = wide ? 35 : 52;
     camera.updateProjectionMatrix();
-    hero.position.set(wide ? 3.2 : 0, wide ? 0.2 : 2.5, 0);
-    hero.scale.setScalar(wide ? 0.78 : 0.7);
+    hero.position.set(wide ? 3.2 : 0, wide ? 0.2 : 4.5, 0);
+    hero.scale.setScalar(wide ? 0.78 : 0.6);
     wake();
   }
 
