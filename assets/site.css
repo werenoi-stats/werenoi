@@ -89,6 +89,7 @@ button, select, input { font: inherit; color: inherit; }
 .no-webgl .t-fallback { opacity: 1; }
 .medal { width: fit-content; justify-self: start; }
 .world { overflow-x: clip; }
+.kw { margin-right: -.13em; }
 .olabel { position: absolute; z-index: 3; left: 0; top: 0; display: none; padding: 6px 10px; border: 0; background: none; color: var(--gold-hi); font: italic 500 16px/1 var(--serif); text-shadow: 0 2px 14px #000, 0 0 4px #000; cursor: pointer; white-space: nowrap; transition: opacity .4s; will-change: transform; }
 .olabel.behind { opacity: .4; }
 @media (hover: none), (max-width: 1000px) { .olabel { display: block; } }

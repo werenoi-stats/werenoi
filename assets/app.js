@@ -8,7 +8,7 @@
 
   /* ================= helpers ================= */
   var nf = new Intl.NumberFormat("fr-FR");
-  function fmt(n) { return nf.format(Math.round(n)); }
+  function fmt(n) { return nf.format(Math.round(n)).replace(/\u202f/g, "\u00a0"); }
   function compact(n) {
     if (n >= 1e9) return (n / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " Md";
     if (n >= 1e6) return (n / 1e6).toLocaleString("fr-FR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 }) + " M";
