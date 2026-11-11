@@ -3,319 +3,424 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Werenoi, streams Spotify</title>
+<title>Werenoi, streams et certifications</title>
+<meta name="description" content="Les streams Spotify de chaque titre de Werenoi et ses certifications SNEP, mis à jour chaque soir.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-/* Layout: masthead, 4 summary tiles, "today" + trend side by side, then the full catalogue as ranked rows with gold bars. One dark world: diamant noir + chemin d'or. */
+/* Layout: sticky tab bar; hero split (text + live counter | rotating "diamant noir" whose orbit ring is the progress to the next billion);
+   then Top 24 h, Certifications, Tous les titres. One dark world: obsidian, gold (chemin d'or), prism light reserved for diamant. */
 :root {
-  --ink: #0e0d0c;
-  --panel: #171513;
-  --line: #2b2723;
-  --text: #efe9df;
-  --muted: #9a9187;
-  --gold: #d6a84e;
-  --gold-soft: rgba(214, 168, 78, 0.14);
-  --up: #6cc08a;
-  --down: #e2705f;
-  --platine: #c9cdd4;
-  --diamant: #8fd0ec;
-  --display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
-  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --ink: #08070f;
+  --ink-2: #0f0d1a;
+  --ink-3: #171427;
+  --line: #262238;
+  --text: #efeaf7;
+  --muted: #9a93ad;
+  --gold: #e8b75f;
+  --ice: #9fe6ff;
+  --lilac: #b9a7ff;
+  --platine: #d3d7e0;
+  --up: #62e3a6;
+  --down: #ff7a6b;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Manrope", "Helvetica Neue", Arial, sans-serif;
+  --bar-h: 60px;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--bar-h) + 12px); }
 html, body { margin: 0; }
-body {
-  background: var(--ink);
-  color: var(--text);
-  font: 400 15px/1.5 var(--body);
-  -webkit-font-smoothing: antialiased;
-}
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 56px; }
+body { background: var(--ink); color: var(--text); font: 400 15px/1.55 var(--body); -webkit-font-smoothing: antialiased; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 3px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 .num { font-variant-numeric: tabular-nums; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* Masthead */
-.mast { padding: 40px 0 28px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
-.kicker { margin: 0; color: var(--gold); font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
-.mast h1 { margin: 0; font: 800 clamp(64px, 14vw, 132px)/.86 var(--display); letter-spacing: .01em; text-wrap: balance; }
-.mast-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 14px; }
-.mast-meta strong { color: var(--text); font-weight: 500; }
+/* Tab bar */
+.bar { position: sticky; top: 0; z-index: 20; height: var(--bar-h); background: rgba(8, 7, 15, .78); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--line); }
+.bar .wrap { height: 100%; display: flex; align-items: center; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 15px var(--display); letter-spacing: .02em; flex: none; }
+.brand svg { display: block; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs a { flex: none; text-decoration: none; color: var(--muted); font-weight: 600; font-size: 14px; padding: 8px 12px; border-radius: 999px; transition: color .2s, background-color .2s; }
+.tabs a:hover { color: var(--text); }
+.tabs a[aria-current="true"] { color: var(--ink); background: var(--gold); }
+.kbd-search { flex: none; display: flex; align-items: center; gap: 8px; background: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px 7px 14px; color: var(--muted); font-size: 13px; cursor: pointer; transition: border-color .2s, color .2s; }
+.kbd-search:hover { border-color: var(--gold); color: var(--text); }
+.kbd-search kbd { font: 600 11px var(--body); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
 
-/* Tiles */
-.tiles { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.1fr) minmax(0, .8fr) minmax(0, 1.1fr); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
-.tile { background: var(--ink); padding: 22px 18px 20px 0; display: grid; gap: 4px; align-content: start; }
-.tile + .tile { padding-left: 18px; }
-.tile h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-.tile .big { font: 800 clamp(28px, 3.9vw, 44px)/1 var(--display); letter-spacing: .01em; white-space: nowrap; }
-.tile .big.gold { color: var(--gold); }
-.tile p { margin: 0; color: var(--muted); font-size: 13px; }
+/* Hero */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line); }
+.hero::before { content: ""; position: absolute; inset: -20% -10% auto auto; width: 70%; height: 140%; background: radial-gradient(closest-side, rgba(232, 183, 95, .13), transparent 70%), radial-gradient(closest-side at 70% 60%, rgba(159, 230, 255, .08), transparent 70%); pointer-events: none; }
+.hero .wrap { position: relative; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 32px; align-items: center; padding-top: 48px; padding-bottom: 48px; }
+.hero h1 { margin: 0; font: 800 clamp(56px, 10.5vw, 140px)/.88 var(--display); letter-spacing: -.035em; background: linear-gradient(180deg, #ffffff 10%, #e9e2f6 55%, #a99ad8 120%); -webkit-background-clip: text; background-clip: text; color: transparent; text-wrap: balance; }
+.lede { margin: 18px 0 0; color: var(--muted); font-size: 16px; max-width: 46ch; }
+.lede strong { color: var(--text); font-weight: 600; }
+.memo { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.live { margin-top: 30px; }
+.live-label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(98, 227, 166, .6); animation: pulse 2s infinite; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(98, 227, 166, 0); } 100% { box-shadow: 0 0 0 0 rgba(98, 227, 166, 0); } }
+.counter { font: 800 clamp(34px, 5.6vw, 64px)/1.05 var(--body); letter-spacing: -.02em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.counter-note { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 52ch; }
+.counter-note b { color: var(--text); font-weight: 600; }
+.strip { display: flex; flex-wrap: wrap; margin-top: 26px; border-top: 1px solid var(--line); }
+.strip > div { padding: 14px 22px 0 0; margin-right: 22px; border-right: 1px solid var(--line); display: grid; gap: 1px; }
+.strip > div:last-child { border-right: 0; margin-right: 0; }
+.strip b { font: 700 22px var(--body); font-variant-numeric: tabular-nums; }
+.strip span { font-size: 13px; color: var(--muted); }
+.gem-wrap { width: 100%; max-width: 480px; justify-self: center; }
+.gem { position: relative; aspect-ratio: 1; width: 100%; }
+.gem canvas { width: 100%; height: 100%; display: block; }
+.gem-caption { margin: 4px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+.gem-caption b { color: var(--gold); font: 700 15px var(--body); }
 
-/* Two panels */
-.duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; padding: 30px 0; border-bottom: 1px solid var(--line); }
-.sec-h { margin: 0 0 4px; font: 600 26px/1.1 var(--display); letter-spacing: .02em; text-transform: uppercase; text-wrap: balance; }
-.sec-sub { margin: 0 0 16px; color: var(--muted); font-size: 13px; }
-.hot { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.hot li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 10px; align-items: center; }
-.hot .pos { font: 800 22px/1 var(--display); color: var(--gold); }
-.hot .nm { font-weight: 500; overflow-wrap: anywhere; }
-.hot .bar { grid-column: 2 / 4; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; margin-top: -6px; }
-.hot .bar i { display: block; height: 100%; background: var(--gold); }
-.hot .val { color: var(--text); font-size: 14px; }
+/* Sections */
+section.block { padding: 56px 0; border-bottom: 1px solid var(--line); }
+.head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 24px; margin-bottom: 22px; }
+.head h2 { margin: 0; font: 700 clamp(22px, 3vw, 30px)/1.1 var(--display); letter-spacing: -.01em; text-wrap: balance; }
+.head p { margin: 0; color: var(--muted); font-size: 14px; max-width: 60ch; }
+.duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; }
+h3.sub { margin: 0 0 14px; font: 600 15px var(--body); color: var(--text); }
+
+/* Top 24 h */
+.hot { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.hot li { display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; }
+.hot .pos { font: 700 18px var(--display); color: var(--gold); }
+.hot .nm { font-weight: 600; overflow-wrap: anywhere; }
+.hot .beam { grid-column: 2 / 4; }
+.hot .val { font-weight: 700; color: var(--up); font-variant-numeric: tabular-nums; }
+.beam { height: 6px; border-radius: 3px; background: var(--ink-3); overflow: hidden; }
+.beam i { display: block; height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, rgba(232, 183, 95, .35), var(--gold)); transition: width .9s cubic-bezier(.2, .7, .2, 1); }
 
 .chart { position: relative; }
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-.chart .ax { fill: var(--muted); font: 400 11px var(--body); }
-.chart .lbl { fill: var(--text); font: 600 12px var(--body); }
-.tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -110%); opacity: 0; transition: opacity .12s; }
+.chart .ax { fill: var(--muted); font: 500 11px var(--body); }
+.chart .lbl { fill: var(--text); font: 700 12px var(--body); }
+.tip { position: absolute; pointer-events: none; background: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -120%); opacity: 0; transition: opacity .15s; }
 .tip.on { opacity: 1; }
-.note { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.note { margin: 10px 0 0; color: var(--muted); font-size: 13px; }
 
-/* Catalogue */
-.cat { padding-top: 30px; }
-.controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 4px 0 16px; }
-.controls input[type="search"] {
-  flex: 1 1 220px; min-width: 0; background: var(--panel); color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font: inherit;
-}
-.controls input::placeholder { color: var(--muted); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-.seg button {
-  background: transparent; color: var(--muted); border: 0; padding: 9px 13px; font: 500 14px var(--body); cursor: pointer;
-}
-.seg button + button { border-left: 1px solid var(--line); }
-.seg button[aria-pressed="true"] { background: var(--gold-soft); color: var(--gold); }
-.seg button:hover { color: var(--text); }
-select {
-  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
-  padding: 9px 10px; font: 500 14px var(--body); cursor: pointer;
-}
-.count { color: var(--muted); font-size: 13px; margin-left: auto; }
-
-.list { list-style: none; margin: 0; padding: 0; }
-.row, .head {
-  display: grid; grid-template-columns: 3.4rem minmax(0, 1fr) 8.6rem 6.6rem 9.4rem;
-  gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line);
-}
-.head { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 8px 0; }
-.head .r, .row .r { text-align: right; }
-.rk { font: 800 20px/1 var(--display); color: var(--muted); display: flex; align-items: baseline; gap: 5px; }
-.row:nth-child(-n+3) .rk { color: var(--gold); }
-.mv { font: 600 10px var(--body); }
-.mv.up { color: var(--up); } .mv.down { color: var(--down); } .mv.eq { color: var(--muted); }
-.ti { min-width: 0; display: grid; gap: 6px; }
-.ti-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
-.ti a { font-weight: 500; text-decoration: none; overflow-wrap: anywhere; }
-.ti a:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
-.chip { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
-.chip.new { border-color: var(--gold); color: var(--gold); }
-.track { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
-.track i { display: block; height: 100%; background: var(--gold); opacity: .85; }
-.row .tot { font-weight: 600; }
-.row .day { color: var(--up); }
-.row .ms { color: var(--muted); font-size: 13px; }
-.row .ms b { color: var(--text); font-weight: 500; }
-.empty { padding: 28px 0; color: var(--muted); }
-
-/* Nav */
-.jump { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.jump a { text-decoration: none; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 6px 11px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
-.jump a:hover { color: var(--gold); border-color: var(--gold); }
-
-/* Certifications */
-.certs { padding: 30px 0; border-bottom: 1px solid var(--line); }
-.sub-h { margin: 26px 0 12px; font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
-.medal { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 3px 8px 3px 7px; border-radius: 4px; border: 1px solid currentColor; white-space: nowrap; }
-.medal::before { content: ""; width: 7px; height: 7px; background: currentColor; transform: rotate(45deg); }
+/* Medals */
+.medal { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 9px 3px 8px; border-radius: 999px; white-space: nowrap; background: var(--ink-3); border: 1px solid currentColor; line-height: 1.3; }
+.medal::before { content: ""; width: 7px; height: 7px; background: currentColor; transform: rotate(45deg); flex: none; }
 .m-or { color: var(--gold); }
 .m-platine { color: var(--platine); }
-.m-diamant { color: var(--diamant); }
-.tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.tally > div { background: var(--panel); padding: 14px 16px; display: grid; gap: 2px; }
-.tally .k { font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.tally .v { font: 800 38px/1 var(--display); color: var(--text); }
-.tally p { margin: 0; color: var(--muted); font-size: 12px; }
-.albums { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
-.albums li { border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; align-content: start; background: var(--panel); }
-.albums .al-t { font: 800 26px/1 var(--display); letter-spacing: .01em; }
-.albums p { margin: 0; color: var(--muted); font-size: 12px; }
-.recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
-.recent li { border-left: 2px solid var(--line); padding: 2px 0 2px 12px; display: grid; gap: 4px; }
-.recent li.d-diamant { border-left-color: var(--diamant); }
-.recent li.d-platine { border-left-color: var(--platine); }
-.recent li.d-or { border-left-color: var(--gold); }
-.recent .when { font-size: 12px; color: var(--muted); }
-.recent .ct { font-weight: 600; overflow-wrap: anywhere; }
-.recent .ca { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.crow, .chead { display: grid; grid-template-columns: 7.2rem 8.4rem minmax(0, 1fr) 5rem 9rem; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.chead { color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 8px 0; }
-.crow .cd { font-size: 14px; }
-.crow .cti { min-width: 0; display: grid; gap: 2px; }
-.crow .cti b { font-weight: 500; overflow-wrap: anywhere; }
-.crow .cti span { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.crow .ccat, .crow .crel { font-size: 13px; color: var(--muted); }
+.m-diamant { color: var(--ice); border-color: transparent; background: linear-gradient(var(--ink-3), var(--ink-3)) padding-box, linear-gradient(120deg, var(--ice), var(--lilac), var(--ice)) border-box; border: 1px solid transparent; }
+.m-diamant::before { background: linear-gradient(135deg, var(--ice), var(--lilac)); }
+.chip { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.chip.new { border-color: var(--up); color: var(--up); }
+
+/* Certifications */
+.spectrum { display: flex; height: 14px; border-radius: 7px; overflow: hidden; gap: 3px; }
+.spectrum span { display: block; height: 100%; transition: flex-grow .9s cubic-bezier(.2, .7, .2, 1); }
+.s-diamant { background: linear-gradient(90deg, var(--ice), var(--lilac)); }
+.s-platine { background: var(--platine); }
+.s-or { background: var(--gold); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 32px; margin-top: 14px; }
+.legend div { display: grid; gap: 0; }
+.legend b { font: 700 30px/1.1 var(--display); }
+.legend span { font-size: 13px; color: var(--muted); }
+.legend .k { font-size: 14px; font-weight: 700; }
+.albums { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 34px; border-top: 1px solid var(--line); }
+.albums > div { padding: 16px 16px 4px 0; display: grid; gap: 8px; align-content: start; }
+.albums > div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+.albums .al { font: 700 19px/1.15 var(--display); }
+.albums p { margin: 0; font-size: 13px; color: var(--muted); }
+.recent { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.recent li { display: grid; gap: 6px; align-content: start; padding-top: 12px; border-top: 2px solid var(--line); }
+.recent li.d-or { border-top-color: var(--gold); }
+.recent li.d-platine { border-top-color: var(--platine); }
+.recent li.d-diamant { border-image: linear-gradient(90deg, var(--ice), var(--lilac)) 1; }
+.recent time { font-size: 13px; color: var(--muted); }
+.recent .ct { font-weight: 700; font-size: 16px; overflow-wrap: anywhere; }
+.recent .ca { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.medal-row { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Toolbars */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+.search { position: relative; flex: 1 1 260px; min-width: 0; }
+.search input { width: 100%; height: 44px; background: var(--ink-2); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 0 40px 0 40px; font: 500 15px var(--body); transition: border-color .2s; }
+.search input:focus { border-color: var(--gold); outline: none; }
+.search input::placeholder { color: var(--muted); }
+.search svg { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.search .clear { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 32px; height: 32px; border: 0; background: transparent; color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 18px; line-height: 1; }
+.search .clear:hover { color: var(--text); background: var(--ink-3); }
+.seg { display: inline-flex; background: var(--ink-2); border: 1px solid var(--line); border-radius: 12px; padding: 3px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; padding: 0 13px; height: 36px; border-radius: 9px; cursor: pointer; transition: background-color .2s, color .2s; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] { background: var(--ink-3); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.count { color: var(--muted); font-size: 13px; margin-left: auto; }
+
+/* Tables */
+.tbl { border-top: 1px solid var(--line); }
+.thead, .trow { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 9.5rem 7.5rem 2.2rem; gap: 14px; align-items: center; }
+.thead { padding: 8px 0; border-bottom: 1px solid var(--line); position: sticky; top: var(--bar-h); background: rgba(8, 7, 15, .92); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); z-index: 5; }
+.thead button, .thead span { background: none; border: 0; padding: 4px 0; font-size: 12px; font-weight: 700; color: var(--muted); text-align: left; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.thead span { cursor: default; }
+.thead .r { justify-content: flex-end; text-align: right; }
+.thead button:hover, .thead button[aria-sort="descending"], .thead button[aria-sort="ascending"] { color: var(--text); }
+.thead button .ar { opacity: 0; transition: opacity .2s, transform .2s; }
+.thead button[aria-sort="descending"] .ar, .thead button[aria-sort="ascending"] .ar { opacity: 1; }
+.thead button[aria-sort="ascending"] .ar { transform: rotate(180deg); }
+.list { list-style: none; margin: 0; padding: 0; }
+.list > li { border-bottom: 1px solid var(--line); }
+.trow { width: 100%; padding: 12px 0; background: none; border: 0; text-align: left; cursor: pointer; border-radius: 0; transition: background-color .15s; }
+.trow:hover { background: linear-gradient(90deg, transparent, rgba(232, 183, 95, .05) 30%, transparent); }
+.rk { font: 700 17px var(--display); color: var(--muted); display: flex; align-items: baseline; gap: 6px; }
+.list > li:nth-child(-n+3) .rk { color: var(--gold); }
+.mv { font: 700 11px var(--body); }
+.mv.up { color: var(--up); } .mv.down { color: var(--down); } .mv.eq { color: var(--muted); }
+.ti { min-width: 0; display: grid; gap: 7px; }
+.ti-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.ti-line strong { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.ti .medal { font-size: 10px; padding: 1px 7px 1px 6px; }
+.ti .beam { height: 4px; }
+.r { text-align: right; justify-self: end; }
+.nums { display: contents; }
+.tot { font-weight: 700; }
+.day { color: var(--up); font-weight: 600; }
+.chev { justify-self: end; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 8px; color: var(--muted); transition: transform .25s, color .2s; }
+.trow[aria-expanded="true"] .chev { transform: rotate(180deg); color: var(--gold); }
+.detail { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; padding: 4px 0 18px calc(3.2rem + 14px); animation: open .25s ease-out; }
+@keyframes open { from { opacity: 0; transform: translateY(-4px); } }
+.detail > div { display: grid; gap: 3px; align-content: start; }
+.detail .medal-row { justify-content: flex-start; }
+.detail .k { font-size: 12px; color: var(--muted); }
+.detail .v { font-weight: 700; font-size: 15px; }
+.prog { height: 6px; border-radius: 3px; background: var(--ink-3); overflow: hidden; margin-top: 4px; }
+.prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), #ffd98f); border-radius: 3px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 999px; background: var(--gold); color: var(--ink); font-weight: 700; font-size: 14px; text-decoration: none; justify-self: start; transition: filter .2s; }
+.btn:hover { filter: brightness(1.08); }
+.empty { padding: 28px 0; color: var(--muted); }
+.more { margin-top: 16px; height: 42px; padding: 0 18px; border-radius: 999px; background: var(--ink-2); border: 1px solid var(--line); color: var(--text); font-weight: 600; font-size: 14px; cursor: pointer; transition: border-color .2s; }
+.more:hover { border-color: var(--gold); }
+
+.crow { display: grid; grid-template-columns: 6.6rem 8.6rem minmax(0, 1fr) 5rem 6.4rem; gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.chd { display: grid; grid-template-columns: 6.6rem 8.6rem minmax(0, 1fr) 5rem 6.4rem; gap: 14px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 700; color: var(--muted); }
+.crow .cti { min-width: 0; display: grid; gap: 1px; }
+.crow .cti b { font-weight: 600; overflow-wrap: anywhere; }
+.crow .cti span, .crow .ccat, .crow .crel, .crow .cd { font-size: 13px; color: var(--muted); }
+.crow .cd { color: var(--text); }
 .clist { list-style: none; margin: 0; padding: 0; }
-.more { margin-top: 14px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; font: 500 14px var(--body); cursor: pointer; }
-.more:hover { border-color: var(--gold); color: var(--gold); }
-.ti .medal { font-size: 10px; padding: 1px 6px 1px 5px; }
 
-footer { margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; display: grid; gap: 6px; max-width: 70ch; }
-footer p { margin: 0; }
+footer { padding: 40px 0 70px; color: var(--muted); font-size: 13px; }
+footer .wrap { display: grid; gap: 8px; }
+footer p { margin: 0; max-width: 78ch; }
 
-@media (max-width: 860px) {
-  .tiles { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
-  .tile:nth-child(3) { padding-left: 0; }
+.top-btn { position: fixed; right: 18px; bottom: 18px; z-index: 30; width: 46px; height: 46px; border-radius: 50%; border: 1px solid var(--line); background: rgba(23, 20, 39, .9); color: var(--text); cursor: pointer; display: grid; place-items: center; opacity: 0; transform: translateY(10px); pointer-events: none; transition: opacity .25s, transform .25s, border-color .2s; }
+.top-btn.on { opacity: 1; transform: none; pointer-events: auto; }
+.top-btn:hover { border-color: var(--gold); }
+
+@media (max-width: 900px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); padding-top: 32px; }
+  .gem-wrap { max-width: 340px; order: -1; }
   .duo { grid-template-columns: minmax(0, 1fr); }
-  .row, .head { grid-template-columns: 3rem minmax(0, 1fr) 8rem 6rem; }
-  .row .ms, .head .ms { display: none; }
+  .albums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .albums > div:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .recent { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .trow { grid-template-columns: 2.6rem minmax(0, 1fr) auto 2rem; }
+  .nums { display: grid; justify-items: end; gap: 1px; }
+  .trow .day { font-size: 13px; }
+  .thead { display: flex; gap: 18px; align-items: center; }
+  .thead > span { display: none; }
+  .thead button:first-of-type { margin-right: auto; }
+  .detail { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-left: calc(2.6rem + 14px); }
+  .crow, .chd { grid-template-columns: 6rem 7.6rem minmax(0, 1fr); }
+  .crow .ccat, .crow .crel, .chd .ccat, .chd .crel { display: none; }
+  .kbd-search span, .kbd-search kbd { display: none; }
 }
-@media (max-width: 860px) {
-  .tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .crow, .chead { grid-template-columns: 6.4rem 7.6rem minmax(0, 1fr); }
-  .crow .ccat, .crow .crel, .chead .ccat, .chead .crel { display: none; }
-}
-@media (max-width: 520px) {
-  .crow, .chead { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
-  .chead { display: none; }
+@media (max-width: 560px) {
+  .wrap { padding: 0 16px; }
+  .brand span { display: none; }
+  .tabs a { padding: 8px 10px; font-size: 13px; }
+  .strip > div { padding-right: 14px; margin-right: 14px; }
+  .strip b { font-size: 19px; }
+  .recent { grid-template-columns: minmax(0, 1fr); }
+  .trow { grid-template-columns: 2.2rem minmax(0, 1fr) auto 1.6rem; gap: 10px; }
+  .detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-left: 0; }
+  .crow, .chd { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+  .chd { display: none; }
   .crow .cd { grid-column: 1; font-size: 12px; color: var(--muted); }
   .crow .cm { grid-column: 2; grid-row: 1; }
   .crow .cti { grid-column: 1 / 3; }
 }
-@media (max-width: 520px) {
-  .wrap { padding: 0 16px 48px; }
-  .row, .head { grid-template-columns: 2.4rem minmax(0, 1fr) auto; gap: 10px; }
-  .head .day { display: none; }
-  .row .nums { display: grid; justify-items: end; gap: 1px; }
-  .row .day { font-size: 12px; }
-  .count { margin-left: 0; width: 100%; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-@media (min-width: 521px) { .row .nums { display: contents; } }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="mast">
-    <p class="kicker">Streams Spotify, titre par titre</p>
-    <h1>Werenoi</h1>
-    <div class="mast-meta">
-      <span>Données du <strong id="upd">…</strong></span>
-      <span>Mise à jour automatique chaque jour</span>
-      <span>En mémoire, 17 mai 2025</span>
-    </div>
-    <nav class="jump" aria-label="Rubriques">
-      <a href="#certifications">Certifications SNEP</a>
-      <a href="#catalogue">Tous les titres</a>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Werenoi, haut de page">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 22 9 12 22 2 9Z" fill="none" stroke="#e8b75f" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 9h20M7 9l5 13 5-13M7 9l2.5-7M17 9l-2.5-7" fill="none" stroke="#e8b75f" stroke-width="1" opacity=".7"/></svg>
+      <span>Werenoi</span>
+    </a>
+    <nav class="tabs" aria-label="Rubriques">
+      <a href="#top" data-sec="top">En direct</a>
+      <a href="#ecoutes" data-sec="ecoutes">24 h</a>
+      <a href="#certifications" data-sec="certifications">Certifications</a>
+      <a href="#titres" data-sec="titres">Tous les titres</a>
     </nav>
-  </header>
-
-  <section class="tiles" id="resume" aria-label="Résumé">
-    <div class="tile"><h2>Streams cumulés</h2><span class="big gold num" id="t-total">…</span><p id="t-total-sub"></p></div>
-    <div class="tile"><h2>Écoutes en 24 h</h2><span class="big num" id="t-daily">…</span><p>tous titres confondus</p></div>
-    <div class="tile"><h2>Titres suivis</h2><span class="big num" id="t-count">…</span><p id="t-count-sub"></p></div>
-    <div class="tile"><h2 id="t-next-h">Prochain milliard</h2><span class="big num" id="t-next">…</span><p id="t-next-sub"></p></div>
-  </section>
-
-  <div class="duo">
-    <section id="aujourdhui">
-      <h2 class="sec-h">Les plus écoutés en 24 h</h2>
-      <p class="sec-sub">Streams gagnés depuis le relevé précédent</p>
-      <ol class="hot" id="hot"></ol>
-    </section>
-    <section id="evolution">
-      <h2 class="sec-h">Streams cumulés, relevé après relevé</h2>
-      <p class="sec-sub" id="hist-sub"></p>
-      <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
-      <p class="note">La courbe s'allonge d'un point à chaque mise à jour quotidienne.</p>
-    </section>
+    <button type="button" class="kbd-search" id="go-search" aria-label="Rechercher un titre">
+      <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <span>Chercher un titre</span><kbd>/</kbd>
+    </button>
   </div>
+</header>
 
-  <section class="certs" id="certifications">
-    <h2 class="sec-h">Certifications SNEP</h2>
-    <p class="sec-sub" id="c-sub"></p>
-    <div class="tally" id="tally"></div>
-
-    <h3 class="sub-h">Albums</h3>
-    <ul class="albums" id="albums"></ul>
-
-    <h3 class="sub-h">Les plus récentes</h3>
-    <ol class="recent" id="recent"></ol>
-
-    <h3 class="sub-h">Toutes les certifications</h3>
-    <div class="controls">
-      <div class="seg" role="group" aria-label="Catégorie">
-        <button type="button" id="cc-all" data-cc="all" aria-pressed="true">Tout</button>
-        <button type="button" id="cc-singles" data-cc="Singles" aria-pressed="false">Singles</button>
-        <button type="button" id="cc-albums" data-cc="Albums" aria-pressed="false">Albums</button>
+<main>
+  <section class="hero" id="top" aria-labelledby="h-top">
+    <div class="wrap">
+      <div>
+        <h1 id="h-top">Werenoi</h1>
+        <p class="lede">Les streams Spotify de <strong id="n-tracks">chaque titre</strong> et toutes ses certifications SNEP, mis à jour chaque soir.</p>
+        <p class="memo">En mémoire, 17 mai 2025.</p>
+        <div class="live">
+          <div class="live-label"><span class="pulse" aria-hidden="true"></span><span>Streams cumulés, estimés en direct</span></div>
+          <div class="counter" id="counter" aria-hidden="true">…</div>
+          <p class="counter-note" id="counter-note"></p>
+        </div>
+        <div class="strip" id="strip"></div>
       </div>
-      <div class="seg" role="group" aria-label="Niveau">
-        <button type="button" id="cl-all" data-cl="all" aria-pressed="true">Tous niveaux</button>
-        <button type="button" id="cl-diamant" data-cl="diamant" aria-pressed="false">Diamant</button>
-        <button type="button" id="cl-platine" data-cl="platine" aria-pressed="false">Platine</button>
-        <button type="button" id="cl-or" data-cl="or" aria-pressed="false">Or</button>
+      <div class="gem-wrap">
+        <div class="gem" id="gem">
+          <canvas id="gem-canvas" role="img" aria-label="Diamant en rotation ; l'anneau montre la progression vers le prochain milliard de streams"></canvas>
+        </div>
+        <p class="gem-caption" id="gem-caption"></p>
       </div>
-      <span class="count" id="c-count"></span>
     </div>
-    <div class="chead" aria-hidden="true"><span>Constat</span><span>Niveau</span><span>Titre</span><span class="ccat">Type</span><span class="crel">Sorti le</span></div>
-    <ol class="clist" id="clist"></ol>
-    <button type="button" class="more" id="c-more" hidden></button>
   </section>
 
-  <section class="cat" id="catalogue">
-    <h2 class="sec-h">Tous les titres</h2>
-    <div class="controls">
-      <label class="sr" for="q" style="position:absolute;left:-9999px">Rechercher un titre</label>
-      <input id="q" type="search" placeholder="Rechercher un titre…" autocomplete="off">
-      <div class="seg" role="group" aria-label="Filtrer">
-        <button type="button" id="f-all" data-f="all" aria-pressed="true">Tous</button>
-        <button type="button" id="f-lead" data-f="lead" aria-pressed="false">En solo / lead</button>
-        <button type="button" id="f-feat" data-f="feat" aria-pressed="false">En featuring</button>
+  <section class="block" id="ecoutes" aria-labelledby="h-ecoutes">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="h-ecoutes">Ce qui tourne le plus en 24 h</h2>
+        <p id="ecoutes-sub"></p>
       </div>
-      <label for="sort" style="position:absolute;left:-9999px">Trier par</label>
-      <select id="sort">
-        <option value="s">Trier : streams cumulés</option>
-        <option value="d">Trier : écoutes en 24 h</option>
-        <option value="t">Trier : titre A → Z</option>
-      </select>
-      <span class="count" id="count"></span>
+      <div class="duo">
+        <div>
+          <h3 class="sub">Titres les plus écoutés</h3>
+          <ol class="hot" id="hot"></ol>
+        </div>
+        <div>
+          <h3 class="sub">Streams cumulés, relevé après relevé</h3>
+          <div class="chart" id="chart"><div class="tip" id="tip"></div></div>
+          <p class="note" id="hist-note"></p>
+        </div>
+      </div>
     </div>
-    <div class="head" aria-hidden="true">
-      <span>#</span><span>Titre</span><span class="r">Streams</span><span class="r day">24 h</span><span class="r ms">Prochain palier</span>
-    </div>
-    <ol class="list" id="list"></ol>
-    <p class="empty" id="empty" hidden></p>
   </section>
 
-  <footer>
-    <p>Chiffres relevés sur <a href="https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_songs.html" target="_blank" rel="noopener">kworb.net</a>, qui recopie chaque jour les compteurs d'écoutes publics de Spotify. « 24 h » correspond aux streams gagnés entre les deux derniers relevés.</p>
-    <p>Certifications : base officielle du <a href="https://snepmusique.com/les-certifications/?interprete=werenoi" target="_blank" rel="noopener">SNEP</a>, vérifiée chaque lundi, jour où le SNEP publie ses nouvelles certifications. Le SNEP certifie un single Or à 15 millions d'équivalents streams, Platine à 30 millions et Diamant à 50 millions ; un album Or à 50 000 ventes, Platine à 100 000 et Diamant à 500 000.</p>
-    <p>Les titres « feat. » sont ceux où Werenoi est invité sur le morceau d'un autre artiste. Le prochain palier est estimé au rythme d'écoute actuel. Un clic sur un titre ouvre le morceau sur Spotify.</p>
+  <section class="block" id="certifications" aria-labelledby="h-certs">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="h-certs">Certifications SNEP</h2>
+        <p id="c-sub"></p>
+      </div>
+      <div class="spectrum" id="spectrum" aria-hidden="true"></div>
+      <div class="legend" id="legend"></div>
+
+      <div class="albums" id="albums" aria-label="Albums"></div>
+
+      <h3 class="sub" style="margin-top:40px">Les plus récentes</h3>
+      <ol class="recent" id="recent"></ol>
+
+      <h3 class="sub" style="margin-top:40px">Toutes les certifications</h3>
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="Type">
+          <button type="button" data-cc="all" aria-pressed="true">Tout</button>
+          <button type="button" data-cc="Singles" aria-pressed="false">Singles</button>
+          <button type="button" data-cc="Albums" aria-pressed="false">Albums</button>
+        </div>
+        <div class="seg" role="group" aria-label="Niveau">
+          <button type="button" data-cl="all" aria-pressed="true">Tous niveaux</button>
+          <button type="button" data-cl="diamant" aria-pressed="false">Diamant</button>
+          <button type="button" data-cl="platine" aria-pressed="false">Platine</button>
+          <button type="button" data-cl="or" aria-pressed="false">Or</button>
+        </div>
+        <span class="count" id="c-count"></span>
+      </div>
+      <div class="chd" aria-hidden="true"><span>Constat</span><span>Niveau</span><span>Titre</span><span class="ccat">Type</span><span class="crel">Sorti le</span></div>
+      <ol class="clist" id="clist"></ol>
+      <button type="button" class="more" id="c-more" hidden></button>
+    </div>
+  </section>
+
+  <section class="block" id="titres" aria-labelledby="h-titres">
+    <div class="wrap">
+      <div class="head">
+        <h2 id="h-titres">Tous les titres</h2>
+        <p>Touchez un titre pour voir son prochain palier, sa certification et l'écouter.</p>
+      </div>
+      <div class="toolbar">
+        <div class="search">
+          <svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <label class="sr" for="q">Rechercher un titre</label>
+          <input id="q" type="search" placeholder="Rechercher un titre" autocomplete="off" enterkeyhint="search">
+          <button type="button" class="clear" id="q-clear" aria-label="Effacer la recherche" hidden>×</button>
+        </div>
+        <div class="seg" role="group" aria-label="Rôle de Werenoi">
+          <button type="button" data-f="all" aria-pressed="true">Tous</button>
+          <button type="button" data-f="lead" aria-pressed="false">Solo ou lead</button>
+          <button type="button" data-f="feat" aria-pressed="false">Featuring</button>
+          <button type="button" data-f="cert" aria-pressed="false">Certifiés</button>
+        </div>
+        <span class="count" id="count" aria-live="polite"></span>
+      </div>
+      <div class="tbl">
+        <div class="thead" role="presentation">
+          <span>#</span>
+          <button type="button" data-sort="t" aria-sort="none">Titre <span class="ar" aria-hidden="true">▾</span></button>
+          <button type="button" class="r" data-sort="s" aria-sort="descending">Streams <span class="ar" aria-hidden="true">▾</span></button>
+          <button type="button" class="r c-day" data-sort="d" aria-sort="none">24 h <span class="ar" aria-hidden="true">▾</span></button>
+          <span></span>
+        </div>
+        <ol class="list" id="list"></ol>
+        <p class="empty" id="empty" hidden></p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Streams relevés chaque soir sur <a href="https://kworb.net/spotify/artist/3YBJLs7RqR0aPGBgU27nDh_songs.html" target="_blank" rel="noopener">kworb.net</a>, qui recopie les compteurs publics de Spotify. « 24 h » correspond aux streams gagnés entre les deux derniers relevés. Le compteur en direct est une estimation au rythme de ces 24 h ; le chiffre officiel est celui du dernier relevé.</p>
+    <p>Certifications : base officielle du <a href="https://snepmusique.com/les-certifications/?interprete=werenoi" target="_blank" rel="noopener">SNEP</a>, vérifiée chaque lundi. Un single est certifié Or à 15 millions d'équivalents streams, Platine à 30 millions et Diamant à 50 millions ; un album Or à 50 000 ventes, Platine à 100 000 et Diamant à 500 000.</p>
     <p id="fetched"></p>
-  </footer>
-</div>
+  </div>
+</footer>
+
+<button type="button" class="top-btn" id="top-btn" aria-label="Revenir en haut">
+  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</button>
 
 <script src="data.js"></script>
 <script src="certs.js"></script>
 <script>
 (function () {
   "use strict";
-  var D = window.WERENOI_DATA;
+  var D = window.WERENOI_DATA, C = window.WERENOI_CERTS;
   var $ = function (id) { return document.getElementById(id); };
-  if (!D || !D.tracks) {
-    $("upd").textContent = "indisponible";
-    $("empty").hidden = false;
-    $("empty").textContent = "Les données n'ont pas pu être chargées. Rechargez la page dans un instant.";
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!D || !D.tracks || !D.tracks.length) {
+    $("counter").textContent = "—";
+    $("counter-note").textContent = "Les données n'ont pas pu être chargées. Rechargez la page dans un instant.";
     return;
   }
 
+  // ---------- helpers
   var nf = new Intl.NumberFormat("fr-FR");
-  var fmt = function (n) { return nf.format(n); };
+  function fmt(n) { return nf.format(n); }
   function compact(n) {
-    var o = { maximumFractionDigits: 2 };
-    if (n >= 1e9) return (n / 1e9).toLocaleString("fr-FR", o) + " Md";
+    if (n >= 1e9) return (n / 1e9).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " Md";
     if (n >= 1e6) return (n / 1e6).toLocaleString("fr-FR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 }) + " M";
     if (n >= 1e3) return Math.round(n / 1e3) + " k";
     return String(n);
@@ -323,10 +428,9 @@ footer p { margin: 0; }
   function asDate(iso) { return new Date(iso + "T12:00:00Z"); }
   function longDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).replace(/^1 /, "1er "); }
   function shortDate(d) { return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" }); }
-  function nextStep(s) {
-    var step = s < 1e6 ? 1e5 : s < 1e7 ? 1e6 : s < 1e8 ? 1e7 : s < 1e9 ? 5e7 : 1e9;
-    return (Math.floor(s / step) + 1) * step;
-  }
+  function numDate(iso) { return iso ? asDate(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—"; }
+  function stepOf(s) { return s < 1e6 ? 1e5 : s < 1e7 ? 1e6 : s < 1e8 ? 1e7 : s < 1e9 ? 5e7 : 1e9; }
+  function nextStep(s) { var st = stepOf(s); return (Math.floor(s / st) + 1) * st; }
   function inDays(gap, perDay) { return perDay > 0 ? Math.ceil(gap / perDay) : Infinity; }
   function daysLabel(n) {
     if (!isFinite(n)) return "—";
@@ -334,119 +438,21 @@ footer p { margin: 0; }
     if (n > 730) return Math.round(n / 365) + " ans";
     return n + (n > 1 ? " jours" : " jour");
   }
+  function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  function tkey(s) { return norm(s.split(" - ")[0]).replace(/[^a-z0-9]/g, ""); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
   var T = D.totals, tracks = D.tracks.slice();
   tracks.sort(function (a, b) { return b.s - a.s; });
   tracks.forEach(function (t, i) { t.rank = i + 1; });
   var maxS = tracks[0].s, maxD = Math.max.apply(null, tracks.map(function (t) { return t.d; }));
 
-  // Header + tiles
-  $("upd").textContent = longDate(asDate(D.updated));
-  $("t-total").textContent = fmt(T.s);
-  $("t-total-sub").textContent = "dont " + compact(T.feat) + " en featuring";
-  $("t-daily").textContent = fmt(T.d);
-  $("t-count").textContent = fmt(T.n);
-  $("t-count-sub").textContent = (T.n - T.nfeat) + " en solo ou lead, " + T.nfeat + " en featuring";
-  var goal = (Math.floor(T.s / 1e9) + 1) * 1e9, gd = inDays(goal - T.s, T.d);
-  $("t-next-h").textContent = "Cap des " + (goal / 1e9) + " milliards";
-  $("t-next").textContent = isFinite(gd) ? daysLabel(gd) : "—";
-  if (isFinite(gd)) {
-    var eta = asDate(D.updated); eta.setUTCDate(eta.getUTCDate() + gd);
-    $("t-next-sub").textContent = "estimé vers le " + longDate(eta) + " au rythme actuel";
-  }
-  if (D.fetched) {
-    var f = new Date(D.fetched);
-    $("fetched").textContent = "Dernière collecte : " + f.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" }) + " (heure de Paris).";
-  }
-
-  // Hot list
-  var hot = tracks.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 6);
-  hot.forEach(function (t, i) {
-    var li = document.createElement("li");
-    var pos = document.createElement("span"); pos.className = "pos"; pos.textContent = i + 1;
-    var nm = document.createElement("span"); nm.className = "nm"; nm.textContent = t.t + (t.f ? " (feat.)" : "");
-    var val = document.createElement("span"); val.className = "val num"; val.textContent = "+" + fmt(t.d);
-    var bar = document.createElement("span"); bar.className = "bar";
-    var fill = document.createElement("i"); fill.style.width = (t.d / maxD * 100).toFixed(1) + "%";
-    bar.appendChild(fill);
-    li.append(pos, nm, val, bar);
-    $("hot").appendChild(li);
-  });
-
-  // History chart
-  var H = (D.history || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-  $("hist-sub").textContent = H.length + (H.length > 1 ? " relevés" : " relevé") + (H.length ? ", depuis le " + longDate(asDate(H[0].date)) : "");
-  var NS = "http://www.w3.org/2000/svg";
-  function el(name, attrs, parent) {
-    var e = document.createElementNS(NS, name);
-    for (var k in attrs) e.setAttribute(k, attrs[k]);
-    if (parent) parent.appendChild(e);
-    return e;
-  }
-  function drawChart() {
-    var box = $("chart"), old = box.querySelector("svg");
-    if (old) old.remove();
-    if (!H.length) return;
-    var W = Math.max(260, box.clientWidth), Ht = 190, pl = 8, pr = 8, pt = 30, pb = 26;
-    var svg = el("svg", { viewBox: "0 0 " + W + " " + Ht, role: "img", "aria-label": "Streams cumulés de Werenoi à chaque relevé" });
-    var t0 = asDate(H[0].date).getTime(), t1 = asDate(H[H.length - 1].date).getTime();
-    var vals = H.map(function (h) { return h.s; });
-    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
-    var pad = Math.max((hi - lo) * 0.15, hi * 0.0005); lo -= pad; hi += pad;
-    var x = function (d) { return t1 === t0 ? W / 2 : pl + (asDate(d).getTime() - t0) / (t1 - t0) * (W - pl - pr); };
-    var y = function (v) { return pt + (1 - (v - lo) / (hi - lo)) * (Ht - pt - pb); };
-    for (var g = 0; g <= 3; g++) {
-      var gy = pt + g * (Ht - pt - pb) / 3;
-      el("line", { x1: pl, x2: W - pr, y1: gy, y2: gy, stroke: "var(--line)", "stroke-width": 1 }, svg);
-    }
-    if (H.length > 1) {
-      var dLine = H.map(function (h, i) { return (i ? "L" : "M") + x(h.date).toFixed(1) + " " + y(h.s).toFixed(1); }).join(" ");
-      el("path", { d: dLine + " L" + x(H[H.length - 1].date).toFixed(1) + " " + (Ht - pb) + " L" + x(H[0].date).toFixed(1) + " " + (Ht - pb) + " Z", fill: "var(--gold-soft)" }, svg);
-      el("path", { d: dLine, fill: "none", stroke: "var(--gold)", "stroke-width": 2.2, "stroke-linejoin": "round" }, svg);
-    }
-    var tip = $("tip");
-    H.forEach(function (h, i) {
-      var last = i === H.length - 1;
-      var c = el("circle", { cx: x(h.date), cy: y(h.s), r: last ? 5 : 3.5, fill: last ? "var(--gold)" : "var(--ink)", stroke: "var(--gold)", "stroke-width": 2, tabindex: 0 }, svg);
-      var hit = el("circle", { cx: x(h.date), cy: y(h.s), r: 14, fill: "transparent" }, svg);
-      var show = function () {
-        tip.textContent = shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams";
-        tip.style.left = Math.min(Math.max(x(h.date) / W * box.clientWidth, 80), box.clientWidth - 80) + "px";
-        tip.style.top = (y(h.s) / Ht * box.clientWidth * (Ht / W)) + "px";
-        tip.classList.add("on");
-      };
-      var hide = function () { tip.classList.remove("on"); };
-      [c, hit].forEach(function (n) {
-        n.addEventListener("mouseenter", show); n.addEventListener("mouseleave", hide);
-        n.addEventListener("focus", show); n.addEventListener("blur", hide);
-        n.addEventListener("touchstart", show, { passive: true });
-      });
-    });
-    var first = H[0], lastH = H[H.length - 1];
-    var lab = el("text", { x: x(lastH.date), y: y(lastH.s) - 12, "text-anchor": H.length > 1 ? "end" : "middle", class: "lbl" }, svg);
-    lab.textContent = compact(lastH.s);
-    if (H.length > 1) {
-      var lab0 = el("text", { x: x(first.date), y: y(first.s) - 12, "text-anchor": "start", class: "ax" }, svg);
-      lab0.textContent = compact(first.s);
-    }
-    var a0 = el("text", { x: pl, y: Ht - 6, "text-anchor": "start", class: "ax" }, svg); a0.textContent = shortDate(asDate(first.date));
-    if (H.length > 1) { var a1 = el("text", { x: W - pr, y: Ht - 6, "text-anchor": "end", class: "ax" }, svg); a1.textContent = shortDate(asDate(lastH.date)); }
-    box.insertBefore(svg, tip);
-  }
-  drawChart();
-  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(drawChart, 120); });
-
-  // Certifications (SNEP)
-  var C = window.WERENOI_CERTS;
+  // ---------- certifications prep
   var LV = { "Or": 1, "Double Or": 2, "Platine": 3, "Double Platine": 4, "Triple Platine": 5, "Diamant": 6, "Double Diamant": 7, "Triple Diamant": 8, "Quadruple Diamant": 9 };
   var ALB = { carre: "Carré", telegram: "Telegram", telegram2: "Telegram 2", pyramide: "Pyramide", pyramide2: "Pyramide 2", diamantnoir: "Diamant Noir" };
   function family(n) { return /diamant/i.test(n) ? "diamant" : /platine/i.test(n) ? "platine" : "or"; }
-  function medalLabel(n) {
-    var m = n.match(/^(Double|Triple|Quadruple) (.+)$/);
-    return m ? m[2] + " ×" + { Double: 2, Triple: 3, Quadruple: 4 }[m[1]] : n;
-  }
-  function medal(n) { var s = document.createElement("span"); s.className = "medal m-" + family(n); s.textContent = medalLabel(n); return s; }
-  function tkey(s) { return norm(s.split(" - ")[0]).replace(/[^a-z0-9]/g, ""); }
+  function medalLabel(n) { var m = n.match(/^(Double|Triple|Quadruple) (.+)$/); return m ? m[2] + " ×" + { Double: 2, Triple: 3, Quadruple: 4 }[m[1]] : n; }
+  function medal(n) { return el("span", "medal m-" + family(n), medalLabel(n)); }
   var byKey = {};
   tracks.forEach(function (t) { var k = tkey(t.t); if (!byKey[k]) byKey[k] = t; });
   function niceTitle(c) {
@@ -463,99 +469,264 @@ footer p { margin: 0; }
     var y = Math.floor(m / 12), mm = m % 12;
     return (y ? y + (y > 1 ? " ans" : " an") : "") + (y && mm ? " " : "") + (mm ? mm + " mois" : "");
   }
-  function isNew(c) {
-    if (!c.seen || !C.checked) return false;
-    return (asDate(C.checked) - asDate(c.seen)) / 864e5 <= 7;
-  }
-  function newChip() { var s = document.createElement("span"); s.className = "chip new"; s.textContent = "nouveau"; return s; }
+  var certs = (C && C.certs ? C.certs.slice() : []).sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
+  function isNew(c) { return !!(c.seen && C.checked && (asDate(C.checked) - asDate(c.seen)) / 864e5 <= 7); }
   var bestSingle = {};
-  var cstate = { cc: "all", cl: "all", all: false };
+  certs.forEach(function (c) {
+    if (c.c !== "Singles") return;
+    var k = tkey(c.t), cur = bestSingle[k];
+    if (!cur || (LV[c.n] || 0) > (LV[cur.n] || 0)) bestSingle[k] = c;
+  });
 
-  if (!C || !C.certs || !C.certs.length) {
+  // ---------- hero
+  $("n-tracks").textContent = T.n + " titres";
+  var dayEnd = asDate(D.updated).getTime() + 12 * 3600e3; // fin de la journée du relevé (UTC)
+  function estimate(now) { var el2 = Math.max(0, (now - dayEnd) / 1000); return Math.round(T.s + T.d * el2 / 86400); }
+  var cn = $("counter");
+  $("counter-note").innerHTML = "";
+  var note = $("counter-note");
+  note.append("Chiffre officiel du " + longDate(asDate(D.updated)) + " : ");
+  note.appendChild(el("b", "num", fmt(T.s)));
+  note.append(". L'estimation avance au rythme des dernières 24 h (" + fmt(T.d) + " streams par jour).");
+  var lastTxt = "";
+  function tick() {
+    var txt = fmt(estimate(Date.now()));
+    if (txt !== lastTxt) { cn.textContent = txt; lastTxt = txt; }
+  }
+  tick();
+  if (!REDUCED) setInterval(tick, 120); else setInterval(tick, 5000);
+
+  var strip = $("strip");
+  function stat(v, label) { var d = el("div"); d.append(el("b", null, v), el("span", null, label)); strip.appendChild(d); }
+  stat("+" + fmt(T.d), "streams en 24 h");
+  stat(String(T.n), "titres suivis");
+  if (certs.length) stat(String(certs.length), "certifications SNEP");
+
+  var goal = (Math.floor(T.s / 1e9) + 1) * 1e9;
+  var goalDays = inDays(goal - T.s, T.d);
+  var goalProg = (T.s - (goal - 1e9)) / 1e9;
+  var cap = $("gem-caption");
+  cap.append(el("b", null, (goalProg * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 }) + " %"), document.createTextNode(" du chemin entre " + (goal / 1e9 - 1) + " et " + goal / 1e9 + " milliards"));
+  if (isFinite(goalDays)) {
+    var eta = asDate(D.updated); eta.setUTCDate(eta.getUTCDate() + goalDays);
+    cap.appendChild(el("br"));
+    cap.append(goal / 1e9 + " milliards estimés vers le " + longDate(eta));
+  }
+
+  // ---------- diamond (canvas)
+  (function gem() {
+    var cv = $("gem-canvas"), box = $("gem"), ctx = cv.getContext("2d");
+    var V = [], E = [];
+    function add(x, y, z) { V.push([x, y, z]); return V.length - 1; }
+    var table = [], girdle = [], star = [];
+    for (var i = 0; i < 8; i++) { var a = i / 8 * Math.PI * 2; table.push(add(Math.cos(a) * .52, -.42, Math.sin(a) * .52)); }
+    for (var j = 0; j < 16; j++) { var b = j / 16 * Math.PI * 2; girdle.push(add(Math.cos(b), 0, Math.sin(b))); }
+    for (var k = 0; k < 8; k++) { var c2 = (k + .5) / 8 * Math.PI * 2; star.push(add(Math.cos(c2) * .5, .5, Math.sin(c2) * .5)); }
+    var culet = add(0, 1.18, 0);
+    for (var i2 = 0; i2 < 8; i2++) {
+      E.push([table[i2], table[(i2 + 1) % 8]]);
+      E.push([table[i2], girdle[i2 * 2]]); E.push([table[i2], girdle[(i2 * 2 + 15) % 16]]); E.push([table[i2], girdle[i2 * 2 + 1]]);
+      E.push([girdle[i2 * 2 + 1], star[i2]]); E.push([star[i2], culet]);
+      E.push([girdle[i2 * 2], culet]);
+    }
+    for (var g = 0; g < 16; g++) E.push([girdle[g], girdle[(g + 1) % 16]]);
+
+    var W = 0, H = 0, dpr = 1, angle = 0.4, mouseX = 0, running = true, visible = true;
+    function size() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      W = box.clientWidth; H = box.clientHeight;
+      cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    function proj(p, ang, tilt) {
+      var x = p[0], y = p[1], z = p[2];
+      var cx = Math.cos(ang), sx = Math.sin(ang);
+      var x1 = x * cx - z * sx, z1 = x * sx + z * cx;
+      var ct = Math.cos(tilt), st = Math.sin(tilt);
+      var y2 = y * ct - z1 * st, z2 = y * st + z1 * ct;
+      var R = Math.min(W, H) * .25, persp = 3.2 / (3.2 + z2);
+      return [W / 2 + x1 * R * persp, H / 2 + (y2 - .38) * R * persp, z2];
+    }
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      var cx = W / 2, cy = H / 2, r = Math.min(W, H) * .4;
+      // orbit ring = progress to next billion
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(255,255,255,.07)";
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
+      var start = -Math.PI / 2, end = start + Math.PI * 2 * goalProg;
+      var grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+      grad.addColorStop(0, "#9fe6ff"); grad.addColorStop(.5, "#b9a7ff"); grad.addColorStop(1, "#e8b75f");
+      ctx.strokeStyle = grad; ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.arc(cx, cy, r, start, end); ctx.stroke();
+      ctx.fillStyle = "#e8b75f";
+      ctx.beginPath(); ctx.arc(cx + Math.cos(end) * r, cy + Math.sin(end) * r, 4.5, 0, Math.PI * 2); ctx.fill();
+      // ticks
+      ctx.strokeStyle = "rgba(255,255,255,.12)"; ctx.lineWidth = 1;
+      for (var t = 0; t < 40; t++) { var ta = t / 40 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(cx + Math.cos(ta) * (r + 8), cy + Math.sin(ta) * (r + 8)); ctx.lineTo(cx + Math.cos(ta) * (r + (t % 10 ? 11 : 16)), cy + Math.sin(ta) * (r + (t % 10 ? 11 : 16))); ctx.stroke(); }
+      // diamond
+      var tilt = .38 + mouseX * .08;
+      var P = V.map(function (p) { return proj(p, angle, tilt); });
+      E.sort(function (a, b) { return (P[b[0]][2] + P[b[1]][2]) - (P[a[0]][2] + P[a[1]][2]); });
+      E.forEach(function (e) {
+        var a = P[e[0]], b = P[e[1]], depth = (a[2] + b[2]) / 2;
+        var alpha = .22 + (1 - (depth + 1.2) / 2.4) * .7;
+        var lg = ctx.createLinearGradient(a[0], a[1], b[0], b[1]);
+        lg.addColorStop(0, "rgba(232,183,95," + alpha.toFixed(3) + ")");
+        lg.addColorStop(1, "rgba(185,167,255," + (alpha * .8).toFixed(3) + ")");
+        ctx.strokeStyle = lg; ctx.lineWidth = depth < 0 ? 1.4 : .8;
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+      });
+      // glints on front vertices
+      P.forEach(function (p, i) {
+        if (p[2] > -.55) return;
+        var s = (Math.sin(angle * 3 + i * 1.7) + 1) / 2;
+        if (s < .82) return;
+        ctx.fillStyle = "rgba(255,255,255," + ((s - .82) * 4).toFixed(2) + ")";
+        ctx.beginPath(); ctx.arc(p[0], p[1], 2.2, 0, Math.PI * 2); ctx.fill();
+      });
+    }
+    var last = 0;
+    function loop(ts) {
+      if (!running) return;
+      var dt = last ? Math.min(ts - last, 50) : 16; last = ts;
+      angle += dt * .00028;
+      draw();
+      requestAnimationFrame(loop);
+    }
+    function start() { if (REDUCED) { draw(); return; } if (!running) { running = true; last = 0; requestAnimationFrame(loop); } }
+    function stop() { running = false; }
+    size(); draw();
+    if (!REDUCED) requestAnimationFrame(loop); else running = false;
+    window.addEventListener("resize", function () { size(); draw(); });
+    box.addEventListener("pointermove", function (e) { var r = box.getBoundingClientRect(); mouseX = ((e.clientX - r.left) / r.width - .5) * 2; });
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (en) { visible = en[0].isIntersecting; if (visible && !document.hidden) start(); else stop(); }).observe(box);
+    document.addEventListener("visibilitychange", function () { if (document.hidden) stop(); else if (visible) start(); });
+  })();
+
+  // ---------- top 24 h
+  $("ecoutes-sub").textContent = "Relevé du " + longDate(asDate(D.updated)) + ".";
+  var hotList = tracks.slice().sort(function (a, b) { return b.d - a.d; }).slice(0, 8);
+  hotList.forEach(function (t, i) {
+    var li = el("li");
+    var beam = el("span", "beam"), fill = el("i");
+    beam.appendChild(fill);
+    li.append(el("span", "pos", String(i + 1)), el("span", "nm", t.t.split(" - ")[0] + (t.f ? " (feat.)" : "")), el("span", "val", "+" + fmt(t.d)), beam);
+    $("hot").appendChild(li);
+    requestAnimationFrame(function () { requestAnimationFrame(function () { fill.style.width = (t.d / maxD * 100).toFixed(1) + "%"; }); });
+  });
+
+  // ---------- history chart
+  var Hs = (D.history || []).slice().sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+  $("hist-note").textContent = Hs.length + (Hs.length > 1 ? " relevés depuis le " + longDate(asDate(Hs[0].date)) + ". " : " relevé. ") + "La courbe s'allonge à chaque mise à jour quotidienne.";
+  var NS = "http://www.w3.org/2000/svg";
+  function sv(name, attrs, parent) { var e = document.createElementNS(NS, name); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function drawChart() {
+    var box = $("chart"), old = box.querySelector("svg");
+    if (old) old.remove();
+    if (!Hs.length) return;
+    var W = Math.max(260, box.clientWidth), Ht = 220, pl = 8, pr = 8, pt = 34, pb = 26;
+    var svg = sv("svg", { viewBox: "0 0 " + W + " " + Ht, role: "img", "aria-label": "Évolution des streams cumulés de Werenoi" });
+    var defs = sv("defs", {}, svg);
+    var gr = sv("linearGradient", { id: "area", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    sv("stop", { offset: "0", "stop-color": "#e8b75f", "stop-opacity": ".28" }, gr);
+    sv("stop", { offset: "1", "stop-color": "#e8b75f", "stop-opacity": "0" }, gr);
+    var t0 = asDate(Hs[0].date).getTime(), t1 = asDate(Hs[Hs.length - 1].date).getTime();
+    var vals = Hs.map(function (h) { return h.s; });
+    var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+    var pad = Math.max((hi - lo) * .15, hi * .0005); lo -= pad; hi += pad;
+    var x = function (d) { return t1 === t0 ? W / 2 : pl + (asDate(d).getTime() - t0) / (t1 - t0) * (W - pl - pr); };
+    var y = function (v) { return pt + (1 - (v - lo) / (hi - lo)) * (Ht - pt - pb); };
+    for (var g = 0; g <= 3; g++) { var gy = pt + g * (Ht - pt - pb) / 3; sv("line", { x1: pl, x2: W - pr, y1: gy, y2: gy, stroke: "#262238", "stroke-width": 1 }, svg); }
+    if (Hs.length > 1) {
+      var dl = Hs.map(function (h, i) { return (i ? "L" : "M") + x(h.date).toFixed(1) + " " + y(h.s).toFixed(1); }).join(" ");
+      sv("path", { d: dl + " L" + x(Hs[Hs.length - 1].date).toFixed(1) + " " + (Ht - pb) + " L" + x(Hs[0].date).toFixed(1) + " " + (Ht - pb) + " Z", fill: "url(#area)" }, svg);
+      sv("path", { d: dl, fill: "none", stroke: "#e8b75f", "stroke-width": 2.4, "stroke-linejoin": "round", style: "filter:drop-shadow(0 0 6px rgba(232,183,95,.55))" }, svg);
+    }
+    var tip = $("tip");
+    Hs.forEach(function (h, i) {
+      var lastP = i === Hs.length - 1;
+      var c = sv("circle", { cx: x(h.date), cy: y(h.s), r: lastP ? 5 : 3.5, fill: lastP ? "#e8b75f" : "#08070f", stroke: "#e8b75f", "stroke-width": 2, tabindex: 0, "aria-label": shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams" }, svg);
+      var hit = sv("circle", { cx: x(h.date), cy: y(h.s), r: 16, fill: "transparent" }, svg);
+      function show() {
+        tip.textContent = shortDate(asDate(h.date)) + " : " + fmt(h.s) + " streams";
+        var sc = box.clientWidth / W;
+        tip.style.left = Math.min(Math.max(x(h.date) * sc, 90), box.clientWidth - 90) + "px";
+        tip.style.top = (y(h.s) * sc) + "px";
+        tip.classList.add("on");
+      }
+      function hide() { tip.classList.remove("on"); }
+      [c, hit].forEach(function (n) { n.addEventListener("mouseenter", show); n.addEventListener("mouseleave", hide); n.addEventListener("focus", show); n.addEventListener("blur", hide); n.addEventListener("touchstart", show, { passive: true }); });
+    });
+    var f = Hs[0], l = Hs[Hs.length - 1];
+    var lab = sv("text", { x: x(l.date), y: y(l.s) - 13, "text-anchor": Hs.length > 1 ? "end" : "middle", class: "lbl" }, svg); lab.textContent = compact(l.s);
+    if (Hs.length > 1) { var l0 = sv("text", { x: x(f.date), y: y(f.s) - 13, "text-anchor": "start", class: "ax" }, svg); l0.textContent = compact(f.s); }
+    var a0 = sv("text", { x: pl, y: Ht - 6, "text-anchor": "start", class: "ax" }, svg); a0.textContent = shortDate(asDate(f.date));
+    if (Hs.length > 1) { var a1 = sv("text", { x: W - pr, y: Ht - 6, "text-anchor": "end", class: "ax" }, svg); a1.textContent = shortDate(asDate(l.date)); }
+    box.insertBefore(svg, tip);
+  }
+  drawChart();
+  var rt; window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(drawChart, 120); });
+
+  // ---------- certifications
+  if (!certs.length) {
     $("c-sub").textContent = "Les certifications n'ont pas pu être chargées. Rechargez la page dans un instant.";
   } else {
-    var certs = C.certs.slice().sort(function (a, b) { return a.d < b.d ? 1 : a.d > b.d ? -1 : 0; });
-    certs.forEach(function (c) {
-      if (c.c !== "Singles") return;
-      var k = tkey(c.t), cur = bestSingle[k];
-      if (!cur || (LV[c.n] || 0) > (LV[cur.n] || 0)) bestSingle[k] = c;
-    });
-    $("c-sub").textContent = certs.length + " certifications, la plus récente le " + longDate(asDate(certs[0].d)) +
-      ". Base SNEP vérifiée le " + longDate(asDate(C.checked)) + ".";
-
-    // Tally
+    $("c-sub").textContent = certs.length + " certifications, la plus récente le " + longDate(asDate(certs[0].d)) + ". Base vérifiée le " + longDate(asDate(C.checked)) + ".";
     var fams = [["diamant", "Diamant"], ["platine", "Platine"], ["or", "Or"]];
     fams.forEach(function (f) {
       var list = certs.filter(function (c) { return family(c.n) === f[0]; });
       var s = list.filter(function (c) { return c.c === "Singles"; }).length, al = list.length - s;
-      var box = document.createElement("div");
-      var k = document.createElement("span"); k.className = "k m-" + f[0]; k.textContent = f[1];
-      var v = document.createElement("span"); v.className = "v num"; v.textContent = list.length;
-      var p = document.createElement("p"); p.textContent = s + " single" + (s > 1 ? "s" : "") + (al ? ", " + al + " album" + (al > 1 ? "s" : "") : "");
-      box.append(k, v, p); $("tally").appendChild(box);
+      var seg = el("span", "s-" + f[0]); seg.style.flexGrow = "0"; seg.style.flexBasis = "0";
+      $("spectrum").appendChild(seg);
+      requestAnimationFrame(function () { requestAnimationFrame(function () { seg.style.flexGrow = String(list.length); }); });
+      var d = el("div");
+      d.append(el("span", "k m-" + f[0], f[1]), el("b", "num", String(list.length)), el("span", null, s + " single" + (s > 1 ? "s" : "") + (al ? ", " + al + " album" + (al > 1 ? "s" : "") : "")));
+      $("legend").appendChild(d);
     });
-    var totBox = document.createElement("div");
-    var tk = document.createElement("span"); tk.className = "k"; tk.style.color = "var(--muted)"; tk.textContent = "Au total";
-    var tv = document.createElement("span"); tv.className = "v num"; tv.textContent = certs.length;
-    var nTitles = Object.keys(certs.reduce(function (o, c) { o[c.c + tkey(c.t)] = 1; return o; }, {})).length;
-    var tp = document.createElement("p"); tp.textContent = "sur " + nTitles + " titres et albums";
-    totBox.append(tk, tv, tp); $("tally").appendChild(totBox);
 
-    // Albums
     var albums = {};
-    certs.filter(function (c) { return c.c === "Albums"; }).forEach(function (c) {
-      var k = tkey(c.t); (albums[k] = albums[k] || []).push(c);
-    });
-    Object.keys(albums).map(function (k) {
-      var list = albums[k].sort(function (a, b) { return (LV[b.n] || 0) - (LV[a.n] || 0); });
-      return list;
-    }).sort(function (a, b) { return a[0].r < b[0].r ? -1 : 1; }).forEach(function (list) {
-      var top = list[0], li = document.createElement("li");
-      var t = document.createElement("span"); t.className = "al-t"; t.textContent = niceTitle(top);
-      var m = document.createElement("div"); m.appendChild(medal(top.n)); if (isNew(top)) m.appendChild(newChip());
-      var p1 = document.createElement("p"); p1.textContent = medalLabel(top.n) + " le " + longDate(asDate(top.d));
-      var p2 = document.createElement("p"); p2.textContent = "Sorti le " + longDate(asDate(top.r));
-      li.append(t, m, p1);
-      list.slice(1).forEach(function (c) { var p = document.createElement("p"); p.textContent = medalLabel(c.n) + " le " + longDate(asDate(c.d)); li.appendChild(p); });
-      li.appendChild(p2);
-      $("albums").appendChild(li);
-    });
+    certs.filter(function (c) { return c.c === "Albums"; }).forEach(function (c) { var k = tkey(c.t); (albums[k] = albums[k] || []).push(c); });
+    Object.keys(albums).map(function (k) { return albums[k].sort(function (a, b) { return (LV[b.n] || 0) - (LV[a.n] || 0); }); })
+      .sort(function (a, b) { return a[0].r < b[0].r ? -1 : 1; })
+      .forEach(function (list) {
+        var top = list[0], d = el("div");
+        var mr = el("div", "medal-row"); mr.appendChild(medal(top.n)); if (isNew(top)) mr.appendChild(el("span", "chip new", "nouveau"));
+        d.append(el("span", "al", niceTitle(top)), mr);
+        list.forEach(function (c) { d.appendChild(el("p", null, medalLabel(c.n) + " le " + longDate(asDate(c.d)))); });
+        d.appendChild(el("p", null, "Sorti le " + longDate(asDate(top.r))));
+        $("albums").appendChild(d);
+      });
 
-    // Most recent
     certs.slice(0, 4).forEach(function (c) {
-      var li = document.createElement("li"); li.className = "d-" + family(c.n);
-      var w = document.createElement("span"); w.className = "when"; w.textContent = longDate(asDate(c.d)) + (c.c === "Albums" ? " · album" : "");
-      var mm = document.createElement("div"); mm.appendChild(medal(c.n)); if (isNew(c)) mm.appendChild(newChip());
-      var ct = document.createElement("span"); ct.className = "ct"; ct.textContent = niceTitle(c);
-      var ca = document.createElement("span"); ca.className = "ca"; ca.textContent = c.a;
-      li.append(w, mm, ct, ca); $("recent").appendChild(li);
+      var li = el("li", "d-" + family(c.n));
+      var tm = el("time", null, longDate(asDate(c.d)) + (c.c === "Albums" ? ", album" : "")); tm.dateTime = c.d;
+      var mr = el("div", "medal-row"); mr.appendChild(medal(c.n)); if (isNew(c)) mr.appendChild(el("span", "chip new", "nouveau"));
+      li.append(tm, mr, el("span", "ct", niceTitle(c)), el("span", "ca", c.a));
+      $("recent").appendChild(li);
     });
 
-    // Full list
+    var cstate = { cc: "all", cl: "all", all: false };
     var renderCerts = function () {
       var rows = certs.filter(function (c) {
         if (cstate.cc !== "all" && c.c !== cstate.cc) return false;
         if (cstate.cl !== "all" && family(c.n) !== cstate.cl) return false;
         return true;
       });
-      var ol = $("clist"); ol.textContent = "";
-      var LIMIT = 12, shown = cstate.all ? rows : rows.slice(0, LIMIT), more = $("c-more");
-      more.hidden = rows.length <= LIMIT;
-      more.textContent = cstate.all ? "Réduire la liste" : "Afficher les " + (rows.length - LIMIT) + " autres certifications";
-      more.setAttribute("aria-expanded", String(cstate.all));
+      var LIMIT = 10, shown = cstate.all ? rows : rows.slice(0, LIMIT), more = $("c-more"), ol = $("clist");
+      ol.textContent = "";
       shown.forEach(function (c) {
-        var li = document.createElement("li"); li.className = "crow";
-        var d = document.createElement("span"); d.className = "cd num"; d.textContent = asDate(c.d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" });
-        var m = document.createElement("span"); m.className = "cm"; m.appendChild(medal(c.n));
-        var ti = document.createElement("div"); ti.className = "cti";
-        var b = document.createElement("b"); b.textContent = niceTitle(c);
-        if (isNew(c)) { b.append(" "); b.appendChild(newChip()); }
-        var a = document.createElement("span"); a.textContent = c.a + (took(c.r, c.d) ? " · obtenu en " + took(c.r, c.d) : "");
-        ti.append(b, a);
-        var cat = document.createElement("span"); cat.className = "ccat"; cat.textContent = c.c === "Albums" ? "Album" : "Single";
-        var rel = document.createElement("span"); rel.className = "crel num"; rel.textContent = c.r ? asDate(c.r).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }) : "—";
-        li.append(d, m, ti, cat, rel); ol.appendChild(li);
+        var li = el("li", "crow");
+        var cm = el("span", "cm"); cm.appendChild(medal(c.n));
+        var ti = el("div", "cti"), b = el("b", null, niceTitle(c));
+        if (isNew(c)) { b.append(" "); b.appendChild(el("span", "chip new", "nouveau")); }
+        ti.append(b, el("span", null, c.a + (took(c.r, c.d) ? ", obtenu en " + took(c.r, c.d) : "")));
+        li.append(el("span", "cd num", numDate(c.d)), cm, ti, el("span", "ccat", c.c === "Albums" ? "Album" : "Single"), el("span", "crel num", numDate(c.r)));
+        ol.appendChild(li);
       });
+      more.hidden = rows.length <= LIMIT;
+      more.textContent = cstate.all ? "Réduire la liste" : "Afficher les " + (rows.length - LIMIT) + " autres";
+      more.setAttribute("aria-expanded", String(cstate.all));
       $("c-count").textContent = rows.length + (rows.length > 1 ? " certifications" : " certification");
       document.querySelectorAll("[data-cc]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cc === cstate.cc)); });
       document.querySelectorAll("[data-cl]").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.cl === cstate.cl)); });
@@ -566,72 +737,124 @@ footer p { margin: 0; }
     renderCerts();
   }
 
-  // Catalogue
-  var state = { q: "", f: "all", sort: "s" };
-  try { var saved = JSON.parse(localStorage.getItem("werenoi-view") || "null"); if (saved) { state.f = saved.f || "all"; state.sort = saved.sort || "s"; } } catch (e) {}
-  function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+  // ---------- catalogue
+  var state = { q: "", f: "all", sort: "s", dir: -1 };
+  var open = {};
+  try { var saved = JSON.parse(localStorage.getItem("werenoi-v2") || "null"); if (saved) { state.f = saved.f || "all"; state.sort = saved.sort || "s"; state.dir = saved.dir || -1; } } catch (e) {}
+  function key(t) { return t.t + "|" + t.f; }
+  function detail(t) {
+    var d = el("div", "detail");
+    var step = nextStep(t.s), prev = step - stepOf(t.s), days = inDays(step - t.s, t.d);
+    var p1 = el("div"); p1.append(el("span", "k", "Prochain palier"), el("span", "v", compact(step) + " dans " + daysLabel(days)));
+    var pr = el("div", "prog"), pi = el("i"); pi.style.width = Math.max(2, (t.s - prev) / (step - prev) * 100).toFixed(1) + "%"; pr.appendChild(pi); p1.appendChild(pr);
+    var p2 = el("div"); p2.append(el("span", "k", "Part des streams de Werenoi"), el("span", "v", (t.s / T.s * 100).toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " %"));
+    var bc = bestSingle[tkey(t.t)];
+    var p3 = el("div"); p3.appendChild(el("span", "k", "Certification SNEP"));
+    if (bc) { var mm = el("div", "medal-row"); mm.appendChild(medal(bc.n)); p3.append(mm, el("span", "k", "le " + longDate(asDate(bc.d)))); }
+    else p3.appendChild(el("span", "v", "Aucune pour l'instant"));
+    var p4 = el("div"); var a = el("a", "btn");
+    a.href = t.i ? "https://open.spotify.com/track/" + encodeURIComponent(t.i) : "https://open.spotify.com/search/" + encodeURIComponent(t.t + " Werenoi");
+    a.target = "_blank"; a.rel = "noopener"; a.textContent = "Écouter sur Spotify";
+    p4.appendChild(a);
+    d.append(p1, p2, p3, p4);
+    return d;
+  }
   function render() {
     var q = norm(state.q.trim());
     var rows = tracks.filter(function (t) {
       if (state.f === "lead" && t.f) return false;
       if (state.f === "feat" && !t.f) return false;
+      if (state.f === "cert" && !bestSingle[tkey(t.t)]) return false;
       return !q || norm(t.t).indexOf(q) !== -1;
     });
     rows.sort(function (a, b) {
-      if (state.sort === "d") return b.d - a.d;
-      if (state.sort === "t") return a.t.localeCompare(b.t, "fr", { sensitivity: "base", numeric: true });
-      return b.s - a.s;
+      var r = state.sort === "t" ? a.t.localeCompare(b.t, "fr", { sensitivity: "base", numeric: true }) : (a[state.sort] - b[state.sort]);
+      return state.sort === "t" ? r * -state.dir : r * state.dir;
     });
     var list = $("list"); list.textContent = "";
+    var frag = document.createDocumentFragment();
     rows.forEach(function (t) {
-      var li = document.createElement("li"); li.className = "row";
-      var rk = document.createElement("span"); rk.className = "rk"; rk.textContent = t.rank;
-      rk.title = "Rang au cumul de streams";
+      var li = el("li");
+      var row = el("button", "trow"); row.type = "button";
+      var id = "d-" + t.rank; row.setAttribute("aria-controls", id); row.setAttribute("aria-expanded", String(!!open[key(t)]));
+      var rk = el("span", "rk", String(t.rank));
       if (typeof t.p === "number") {
-        var mv = document.createElement("span"), diff = t.p - t.rank;
-        mv.className = "mv " + (diff > 0 ? "up" : diff < 0 ? "down" : "eq");
-        mv.textContent = diff > 0 ? "▲" + diff : diff < 0 ? "▼" + (-diff) : "=";
+        var diff = t.p - t.rank, mv = el("span", "mv " + (diff > 0 ? "up" : diff < 0 ? "down" : "eq"), diff > 0 ? "▲" + diff : diff < 0 ? "▼" + (-diff) : "=");
         mv.title = diff === 0 ? "Même rang qu'au relevé précédent" : (diff > 0 ? "Gagne " : "Perd ") + Math.abs(diff) + " place(s) depuis le relevé précédent";
         rk.appendChild(mv);
       }
-      var ti = document.createElement("div"); ti.className = "ti";
-      var line = document.createElement("div"); line.className = "ti-line";
-      var a = document.createElement("a");
-      a.href = t.i ? "https://open.spotify.com/track/" + encodeURIComponent(t.i) : "https://open.spotify.com/search/" + encodeURIComponent(t.t + " Werenoi");
-      a.target = "_blank"; a.rel = "noopener"; a.textContent = t.t;
-      line.appendChild(a);
-      if (t.f) { var c = document.createElement("span"); c.className = "chip"; c.textContent = "feat."; line.appendChild(c); }
-      var bc = bestSingle[tkey(t.t)];
-      if (bc) { var md = medal(bc.n); md.title = "Certifié " + medalLabel(bc.n) + " par le SNEP le " + longDate(asDate(bc.d)); line.appendChild(md); }
-      if (t.n) { var c2 = document.createElement("span"); c2.className = "chip new"; c2.textContent = "nouveau"; line.appendChild(c2); }
-      var tr = document.createElement("div"); tr.className = "track";
-      var fi = document.createElement("i"); fi.style.width = Math.max(0.6, t.s / maxS * 100).toFixed(1) + "%";
-      tr.appendChild(fi); ti.append(line, tr);
-      var nums = document.createElement("div"); nums.className = "nums";
-      var tot = document.createElement("span"); tot.className = "num tot r"; tot.textContent = fmt(t.s);
-      var day = document.createElement("span"); day.className = "num day r"; day.textContent = "+" + fmt(t.d);
-      nums.append(tot, day);
-      var ms = document.createElement("span"); ms.className = "ms r";
-      var step = nextStep(t.s), b = document.createElement("b");
-      b.textContent = compact(step);
-      ms.append(b, document.createTextNode(" dans " + daysLabel(inDays(step - t.s, t.d))));
-      li.append(rk, ti, nums, ms);
-      list.appendChild(li);
+      var ti = el("span", "ti"), line = el("span", "ti-line");
+      line.appendChild(el("strong", null, t.t.split(" - ")[0]));
+      if (t.f) line.appendChild(el("span", "chip", "feat."));
+      var bc = bestSingle[tkey(t.t)]; if (bc) line.appendChild(medal(bc.n));
+      if (t.n) line.appendChild(el("span", "chip new", "nouveau"));
+      var beam = el("span", "beam"), fi = el("i"); fi.style.width = Math.max(.6, t.s / maxS * 100).toFixed(1) + "%"; beam.appendChild(fi);
+      ti.append(line, beam);
+      var chev = el("span", "chev"); chev.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      var nums = el("span", "nums"); nums.append(el("span", "num tot r", fmt(t.s)), el("span", "num day r", "+" + fmt(t.d)));
+      row.append(rk, ti, nums, chev);
+      li.appendChild(row);
+      var holder = el("div"); holder.id = id;
+      if (open[key(t)]) holder.appendChild(detail(t));
+      li.appendChild(holder);
+      row.addEventListener("click", function () {
+        var k = key(t), isOpen = !open[k];
+        if (isOpen) open[k] = 1; else delete open[k];
+        row.setAttribute("aria-expanded", String(isOpen));
+        holder.textContent = ""; if (isOpen) holder.appendChild(detail(t));
+      });
+      frag.appendChild(li);
     });
+    list.appendChild(frag);
     $("count").textContent = rows.length + (rows.length > 1 ? " titres" : " titre");
     var empty = $("empty");
     empty.hidden = rows.length > 0;
-    if (!rows.length) empty.textContent = "Aucun titre ne correspond à « " + state.q.trim() + " ».";
-    document.querySelectorAll(".seg button").forEach(function (bt) { bt.setAttribute("aria-pressed", String(bt.dataset.f === state.f)); });
-    $("sort").value = state.sort;
-    try { localStorage.setItem("werenoi-view", JSON.stringify({ f: state.f, sort: state.sort })); } catch (e) {}
+    if (!rows.length) empty.textContent = "Aucun titre ne correspond à « " + state.q.trim() + " ». Vérifiez l'orthographe ou affichez tous les titres.";
+    document.querySelectorAll("[data-f]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.dataset.f === state.f)); });
+    document.querySelectorAll("[data-sort]").forEach(function (b) { b.setAttribute("aria-sort", b.dataset.sort === state.sort ? (state.dir < 0 ? "descending" : "ascending") : "none"); });
+    $("q-clear").hidden = !state.q;
+    try { localStorage.setItem("werenoi-v2", JSON.stringify({ f: state.f, sort: state.sort, dir: state.dir })); } catch (e) {}
   }
-  $("q").addEventListener("input", function (e) { state.q = e.target.value; render(); });
-  document.querySelectorAll(".seg button").forEach(function (bt) {
-    bt.addEventListener("click", function () { state.f = bt.dataset.f; render(); });
+  var qt;
+  $("q").addEventListener("input", function (e) { state.q = e.target.value; clearTimeout(qt); qt = setTimeout(render, 60); });
+  $("q").addEventListener("keydown", function (e) { if (e.key === "Escape") { e.target.value = ""; state.q = ""; render(); } });
+  $("q-clear").addEventListener("click", function () { $("q").value = ""; state.q = ""; render(); $("q").focus(); });
+  document.querySelectorAll("[data-f]").forEach(function (b) { b.addEventListener("click", function () { state.f = b.dataset.f; render(); }); });
+  document.querySelectorAll("[data-sort]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var s = b.dataset.sort;
+      if (state.sort === s) state.dir = -state.dir; else { state.sort = s; state.dir = s === "t" ? 1 : -1; }
+      render();
+    });
   });
-  $("sort").addEventListener("change", function (e) { state.sort = e.target.value; render(); });
   render();
+
+  // ---------- navigation
+  function focusSearch() { $("titres").scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); setTimeout(function () { $("q").focus({ preventScroll: true }); }, REDUCED ? 0 : 450); }
+  $("go-search").addEventListener("click", focusSearch);
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); focusSearch(); }
+  });
+  var tabs = document.querySelectorAll(".tabs a");
+  var secs = ["top", "ecoutes", "certifications", "titres"].map($), navTick = false;
+  function markNav() {
+    navTick = false;
+    var best = "top";
+    secs.forEach(function (sec) { if (sec.getBoundingClientRect().top <= 140) best = sec.id; });
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) best = "titres";
+    tabs.forEach(function (a) {
+      var on = a.dataset.sec === best;
+      if (on && a.getAttribute("aria-current") !== "true") { var nav = a.parentNode; nav.scrollTo({ left: Math.max(0, a.offsetLeft - 16), behavior: REDUCED ? "auto" : "smooth" }); }
+      a.setAttribute("aria-current", String(on));
+    });
+  }
+  window.addEventListener("scroll", function () { if (!navTick) { navTick = true; requestAnimationFrame(markNav); } }, { passive: true });
+  markNav();
+  var topBtn = $("top-btn");
+  window.addEventListener("scroll", function () { topBtn.classList.toggle("on", window.scrollY > 900); }, { passive: true });
+  topBtn.addEventListener("click", function () { window.scrollTo({ top: 0, behavior: REDUCED ? "auto" : "smooth" }); });
+
+  if (D.fetched) $("fetched").textContent = "Dernière collecte : " + new Date(D.fetched).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "Europe/Paris" }) + " (heure de Paris).";
 })();
 </script>
 </body>
